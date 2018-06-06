@@ -18,11 +18,11 @@ TEST(AvahiTest, GetHostName) {
   dbus::endpoint test_daemon("org.freedesktop.Avahi", "/",
                              "org.freedesktop.Avahi.Server");
   boost::asio::io_service io;
-  auto system_bus = std::make_shared<dbus::connection>(io, dbus::bus::system);
+  dbus::connection system_bus(io, dbus::bus::system);
 
   dbus::message m = dbus::message::new_call(test_daemon, "GetHostName");
 
-  system_bus->async_send(
+  system_bus.async_send(
       m, [&](const boost::system::error_code ec, dbus::message r) {
 
         std::string avahi_hostname;
@@ -51,7 +51,7 @@ TEST(AvahiTest, GetHostName) {
 
 TEST(AvahiTest, ServiceBrowser) {
   boost::asio::io_service io;
-  auto system_bus = std::make_shared<dbus::connection>(io, dbus::bus::system);
+  dbus::connection system_bus(io, dbus::bus::system);
 
   dbus::endpoint test_daemon("org.freedesktop.Avahi", "/",
                              "org.freedesktop.Avahi.Server");
@@ -59,7 +59,7 @@ TEST(AvahiTest, ServiceBrowser) {
   dbus::message m1 = dbus::message::new_call(test_daemon, "ServiceBrowserNew");
   m1.pack((int32_t)-1, (int32_t)-1, "_http._tcp", "local", (uint32_t)(0));
 
-  dbus::message r = system_bus->send(m1);
+  dbus::message r = system_bus.send(m1);
   dbus::object_path browser_path;
   EXPECT_TRUE(r.unpack(browser_path));
   testing::Test::RecordProperty("browserPath", browser_path.value);
@@ -97,13 +97,13 @@ TEST(BOOST_DBUS, ListServices) {
     FAIL() << "Callback was never called\n";
   });
 
-  auto system_bus = std::make_shared<dbus::connection>(io, dbus::bus::system);
+  dbus::connection system_bus(io, dbus::bus::system);
 
   dbus::endpoint test_daemon("org.freedesktop.DBus", "/",
                              "org.freedesktop.DBus");
   // create new service browser
   dbus::message m = dbus::message::new_call(test_daemon, "ListNames");
-  system_bus->async_send(
+  system_bus.async_send(
       m, [&](const boost::system::error_code ec, dbus::message r) {
         io.stop();
         std::vector<std::string> services;
@@ -120,12 +120,10 @@ TEST(BOOST_DBUS, ListServices) {
 
 TEST(BOOST_DBUS, SingleSensorChanged) {
   boost::asio::io_service io;
-
-  auto system_bus = std::make_shared<dbus::connection>(io, dbus::bus::system);
+  dbus::connection system_bus(io, dbus::bus::system);
 
   dbus::match ma(system_bus,
                  "type='signal',path_namespace='/xyz/openbmc_project/sensors'");
-
   dbus::filter f(system_bus, [](dbus::message& m) {
     auto member = m.get_member();
     return member == "PropertiesChanged";
@@ -162,15 +160,15 @@ TEST(BOOST_DBUS, SingleSensorChanged) {
   auto removed = std::vector<std::string>();
   EXPECT_EQ(m.pack("xyz.openbmc_project.Sensor.Value", map2, removed), true);
 
-  system_bus->async_send(m,
-                         [&](boost::system::error_code ec, dbus::message s) {});
+  system_bus.async_send(m,
+                        [&](boost::system::error_code ec, dbus::message s) {});
 
   io.run();
 }
 
 TEST(BOOST_DBUS, MultipleSensorChanged) {
   boost::asio::io_service io;
-  auto system_bus = std::make_shared<dbus::connection>(io, dbus::bus::system);
+  dbus::connection system_bus(io, dbus::bus::system);
 
   dbus::match ma(system_bus,
                  "type='signal',path_namespace='/xyz/openbmc_project/sensors'");
@@ -220,8 +218,8 @@ TEST(BOOST_DBUS, MultipleSensorChanged) {
   auto m = dbus::message::new_signal(test_endpoint, signal_name);
   m.pack("xyz.openbmc_project.Sensor.Value", map2, removed);
 
-  system_bus->send(m, std::chrono::seconds(0));
-  system_bus->send(m, std::chrono::seconds(0));
+  system_bus.send(m, std::chrono::seconds(0));
+  system_bus.send(m, std::chrono::seconds(0));
 
   io.run();
 }
@@ -235,8 +233,8 @@ TEST(BOOST_DBUS, MethodCallEx) {
     FAIL() << "Callback was never called\n";
   });
 
-  auto system_bus = std::make_shared<dbus::connection>(io, dbus::bus::session);
-  std::string requested_name = system_bus->get_unique_name();
+  dbus::connection system_bus(io, dbus::bus::session);
+  std::string requested_name = system_bus.get_unique_name();
 
   dbus::filter f(system_bus, [requested_name](dbus::message& m) {
     return m.get_sender() == requested_name;
@@ -257,9 +255,9 @@ TEST(BOOST_DBUS, MethodCallEx) {
           EXPECT_EQ(prop_name, "State");
 
           // send a reply
-          auto r = system_bus->reply(s);
+          auto r = system_bus.reply(s);
           r.pack("IDLE");
-          system_bus->async_send(
+          system_bus.async_send(
               r, [&](boost::system::error_code ec, dbus::message s) {});
           io.stop();
         }
@@ -268,7 +266,7 @@ TEST(BOOST_DBUS, MethodCallEx) {
 
   dbus::endpoint test_endpoint(requested_name, "/xyz/openbmc_project/fwupdate1",
                                "org.freedesktop.DBus.Properties", "Get");
-  system_bus->async_method_call(
+  system_bus.async_method_call(
       [&](const boost::system::error_code ec,
           const dbus::dbus_variant& status) {
         if (ec) {
@@ -291,8 +289,8 @@ TEST(BOOST_DBUS, MethodCall) {
     FAIL() << "Callback was never called\n";
   });
 
-  auto bus = std::make_shared<dbus::connection>(io, dbus::bus::session);
-  std::string requested_name = bus->get_unique_name();
+  dbus::connection bus(io, dbus::bus::session);
+  std::string requested_name = bus.get_unique_name();
 
   dbus::filter f(bus, [](dbus::message& m) {
     return (m.get_member() == "Get" &&
@@ -312,10 +310,10 @@ TEST(BOOST_DBUS, MethodCall) {
           EXPECT_EQ(prop_name, "State");
 
           // send a reply so dbus doesn't get angry?
-          auto r = bus->reply(s);
+          auto r = bus.reply(s);
           r.pack("IDLE");
-          bus->async_send(
-              r, [&](boost::system::error_code ec, dbus::message s) {});
+          bus.async_send(r,
+              [&](boost::system::error_code ec, dbus::message s) {});
           io.stop();
         }
       };
@@ -328,11 +326,11 @@ TEST(BOOST_DBUS, MethodCall) {
   auto m = dbus::message::new_call(test_endpoint, method_name);
 
   m.pack("xyz.openbmc_project.fwupdate1", "State");
-  bus->async_send(m, [&](boost::system::error_code ec, dbus::message s) {
+  bus.async_send(m, [&](boost::system::error_code ec, dbus::message s) {
     std::cerr << "received s: " << s << std::endl;
   });
 
-  // system_bus->send(m, std::chrono::seconds(0));
+  // system_bus.send(m, std::chrono::seconds(0));
 
   io.run();
 }

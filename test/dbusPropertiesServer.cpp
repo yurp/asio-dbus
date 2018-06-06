@@ -18,7 +18,7 @@ static const std::string dbus_boilerplate(
 
 TEST(DbusPropertiesInterface, EmptyObjectServer) {
   boost::asio::io_service io;
-  auto system_bus = std::make_shared<dbus::connection>(io, dbus::bus::system);
+  dbus::connection system_bus(io, dbus::bus::system);
 
   // Set up the object server, and send some test events
   dbus::DbusObjectServer foo(system_bus);
@@ -29,7 +29,7 @@ TEST(DbusPropertiesInterface, EmptyObjectServer) {
 
 TEST(DbusPropertiesInterface, BasicObjectServer) {
   boost::asio::io_service io;
-  auto system_bus = std::make_shared<dbus::connection>(io, dbus::bus::system);
+  dbus::connection system_bus(io, dbus::bus::system);
 
   // Set up the object server, and send some test events
   dbus::DbusObjectServer foo(system_bus);
@@ -59,7 +59,7 @@ TEST(DbusPropertiesInterface, BasicObjectServer) {
 
 TEST(DbusPropertiesInterface, SharedNodeObjectServer) {
   boost::asio::io_service io;
-  auto system_bus = std::make_shared<dbus::connection>(io, dbus::bus::system);
+  dbus::connection system_bus(io, dbus::bus::system);
 
   // Set up the object server, and send some test events
   dbus::DbusObjectServer foo(system_bus);
@@ -101,7 +101,7 @@ TEST(LambdaDbusMethodTest, Basic) {
     return std::make_tuple<int64_t, int32_t>(4L, 2);
   };
   boost::asio::io_service io;
-  auto bus = std::make_shared<dbus::connection>(io, dbus::bus::session);
+  dbus::connection bus(io, dbus::bus::session);
   auto dbus_method =
       dbus::LambdaDbusMethod<decltype(lambda)>("foo", bus, lambda);
 
@@ -119,7 +119,7 @@ TEST(LambdaDbusMethodTest, Basic) {
 
 TEST(DbusPropertiesInterface, ObjectServer) {
   boost::asio::io_service io;
-  auto bus = std::make_shared<dbus::connection>(io, dbus::bus::session);
+  dbus::connection bus(io, dbus::bus::session);
 
   // Set up the object server, and send some test objects
   dbus::DbusObjectServer foo(bus);
@@ -134,11 +134,11 @@ TEST(DbusPropertiesInterface, ObjectServer) {
       {{"/", "/org", "/org/freedesktop", "/org/freedesktop/test1"}});
 
   for (auto& path : paths_to_test) {
-    dbus::endpoint test_daemon(bus->get_unique_name(), path,
+    dbus::endpoint test_daemon(bus.get_unique_name(), path,
                                "org.freedesktop.DBus.Introspectable");
     dbus::message m = dbus::message::new_call(test_daemon, "Introspect");
     completion_count++;
-    bus->async_send(
+    bus.async_send(
         m, [&](const boost::system::error_code ec, dbus::message r) {
           if (ec) {
             std::string error;
@@ -177,18 +177,18 @@ TEST(DbusPropertiesInterface, ObjectServer) {
 
 TEST(DbusPropertiesInterface, EmptyMethodServer) {
   boost::asio::io_service io;
-  auto bus = std::make_shared<dbus::connection>(io, dbus::bus::session);
+  dbus::connection bus(io, dbus::bus::session);
 
   // Set up the object server, and send some test objects
   dbus::DbusObjectServer foo(bus);
   foo.register_object(
       std::make_shared<dbus::DbusObject>(bus, "/org/freedesktop/test1"));
 
-  dbus::endpoint test_daemon(bus->get_unique_name(), "/org/freedesktop/test1",
+  dbus::endpoint test_daemon(bus.get_unique_name(), "/org/freedesktop/test1",
                              "org.freedesktop.DBus.Introspectable");
   dbus::message m = dbus::message::new_call(test_daemon, "Introspect");
 
-  bus->async_send(m, [&](const boost::system::error_code ec, dbus::message r) {
+  bus.async_send(m, [&](const boost::system::error_code ec, dbus::message r) {
     if (ec) {
       std::string error;
       r.unpack(error);
@@ -224,7 +224,7 @@ class TestClass {
 
 TEST(DbusPropertiesInterface, MethodServer) {
   boost::asio::io_service io;
-  auto bus = std::make_shared<dbus::connection>(io, dbus::bus::session);
+  dbus::connection bus(io, dbus::bus::session);
 
   // Set up the object server, and send some test objects
   dbus::DbusObjectServer foo(bus);
@@ -285,11 +285,11 @@ TEST(DbusPropertiesInterface, MethodServer) {
                            return 42;
                          });
 
-  dbus::endpoint test_daemon(bus->get_unique_name(), "/org/freedesktop/test1",
+  dbus::endpoint test_daemon(bus.get_unique_name(), "/org/freedesktop/test1",
                              "org.freedesktop.DBus.Introspectable");
   dbus::message m = dbus::message::new_call(test_daemon, "Introspect");
 
-  bus->async_send(m, [&](const boost::system::error_code ec, dbus::message r) {
+  bus.async_send(m, [&](const boost::system::error_code ec, dbus::message r) {
     if (ec) {
       std::string error;
       r.unpack(error);
@@ -315,7 +315,7 @@ TEST(DbusPropertiesInterface, MethodServer) {
 
 TEST(DbusPropertiesInterface, PropertiesInterface) {
   boost::asio::io_service io;
-  auto bus = std::make_shared<dbus::connection>(io, dbus::bus::session);
+  dbus::connection bus(io, dbus::bus::session);
 
   // Set up the object server, and send some test objects
   dbus::DbusObjectServer foo(bus);
@@ -329,13 +329,13 @@ TEST(DbusPropertiesInterface, PropertiesInterface) {
 
   iface->set_property("foo", (uint32_t)26);
 
-  dbus::endpoint get_dbus_properties(bus->get_unique_name(),
+  dbus::endpoint get_dbus_properties(bus.get_unique_name(),
                                      "/org/freedesktop/test1",
                                      "org.freedesktop.DBus.Properties", "Get");
   size_t outstanding_async_calls = 0;
 
   outstanding_async_calls++;
-  bus->async_method_call(
+  bus.async_method_call(
       [&](const boost::system::error_code ec, dbus::dbus_variant value) {
         outstanding_async_calls--;
         if (ec) {
@@ -350,11 +350,11 @@ TEST(DbusPropertiesInterface, PropertiesInterface) {
       get_dbus_properties, "org.freedesktop.My.Interface", "foo");
 
   dbus::endpoint getall_dbus_properties(
-      bus->get_unique_name(), "/org/freedesktop/test1",
+      bus.get_unique_name(), "/org/freedesktop/test1",
       "org.freedesktop.DBus.Properties", "GetAll");
 
   outstanding_async_calls++;
-  bus->async_method_call(
+  bus.async_method_call(
       [&](const boost::system::error_code ec,
           std::vector<std::pair<std::string, dbus::dbus_variant>> value) {
         outstanding_async_calls--;

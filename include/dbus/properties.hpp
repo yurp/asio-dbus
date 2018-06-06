@@ -23,12 +23,12 @@ struct DbusArgument {
 
 class DbusMethod {
  public:
-  DbusMethod(const std::string& name, std::shared_ptr<dbus::connection>& conn)
+  DbusMethod(const std::string& name, dbus::connection& conn)
       : name(name), conn(conn){};
   virtual void call(dbus::message& m){};
   virtual std::vector<DbusArgument> get_args() { return {}; };
   std::string name;
-  std::shared_ptr<dbus::connection> conn;
+  dbus::connection& conn;
 };
 
 enum class UpdateType { VALUE_CHANGE_ONLY, FORCE };
@@ -88,8 +88,7 @@ class LambdaDbusMethod : public DbusMethod {
   typedef function_traits<Handler> traits;
   typedef typename traits::decayed_arg_types InputTupleType;
   typedef typename traits::result_type ResultType;
-  LambdaDbusMethod(const std::string name,
-                   std::shared_ptr<dbus::connection>& conn, Handler h)
+  LambdaDbusMethod(const std::string name, dbus::connection& conn, Handler h)
       : DbusMethod(name, conn), h(std::move(h)) {
     InputTupleType t;
     arg_types(true, t, args);
@@ -101,7 +100,7 @@ class LambdaDbusMethod : public DbusMethod {
   LambdaDbusMethod(const std::string& name,
                    const std::vector<std::string>& input_arg_names,
                    const std::vector<std::string>& output_arg_names,
-                   std::shared_ptr<dbus::connection>& conn, Handler h)
+                   dbus::connection& conn, Handler h)
       : DbusMethod(name, conn), h(std::move(h)) {
     InputTupleType t;
     arg_types(true, t, args, &input_arg_names);
@@ -113,7 +112,7 @@ class LambdaDbusMethod : public DbusMethod {
     InputTupleType input_args;
     if (unpack_into_tuple(input_args, m) == false) {
       auto err = dbus::message::new_error(m, DBUS_ERROR_INVALID_ARGS, "");
-      conn->send(err, std::chrono::seconds(0));
+      conn.send(err, std::chrono::seconds(0));
       return;
     }
     try {
@@ -122,15 +121,15 @@ class LambdaDbusMethod : public DbusMethod {
       if (pack_tuple_into_msg(r, ret) == false) {
         auto err = dbus::message::new_error(
             m, DBUS_ERROR_FAILED, "Handler had issue when packing response");
-        conn->send(err, std::chrono::seconds(0));
+        conn.send(err, std::chrono::seconds(0));
         return;
       }
-      conn->send(ret, std::chrono::seconds(0));
+      conn.send(ret, std::chrono::seconds(0));
     } catch (...) {
       auto err = dbus::message::new_error(
           m, DBUS_ERROR_FAILED,
           "Handler threw exception while handling request.");
-      conn->send(err, std::chrono::seconds(0));
+      conn.send(err, std::chrono::seconds(0));
       return;
     }
   };
@@ -152,7 +151,7 @@ class DbusTemplateSignal : public DbusSignal {
   DbusTemplateSignal(const std::string& name, const std::string& object_name,
                      const std::string& interface_name,
                      const std::vector<std::string>& names,
-                     std::shared_ptr<dbus::connection>& conn)
+                     dbus::connection& conn)
       : DbusSignal(),
         name(name),
         object_name(object_name),
@@ -165,7 +164,7 @@ class DbusTemplateSignal : public DbusSignal {
   void send(const Args&...) {
     dbus::endpoint endpoint("", object_name, interface_name);
     auto m = dbus::message::new_signal(endpoint, name);
-    conn->send(m, std::chrono::seconds(0));
+    conn.send(m, std::chrono::seconds(0));
   }
 
   std::vector<DbusArgument> get_args() override { return args; };
@@ -174,13 +173,13 @@ class DbusTemplateSignal : public DbusSignal {
   std::string name;
   std::string object_name;
   std::string interface_name;
-  std::shared_ptr<dbus::connection> conn;
+  dbus::connection& conn;
 };
 
 class DbusInterface {
  public:
   DbusInterface(std::string interface_name,
-                std::shared_ptr<dbus::connection>& conn)
+                dbus::connection& conn)
       : interface_name(std::move(interface_name)), conn(conn) {}
   virtual boost::container::flat_map<std::string, std::shared_ptr<DbusSignal>>
   get_signals() {
@@ -254,8 +253,7 @@ class DbusInterface {
     static const std::vector<std::string> empty;
     m.pack(get_interface_name(), updates, empty);
     // TODO(ed) make sure this doesn't block
-    conn->async_send(
-        m, [](const boost::system::error_code ec, dbus::message r) {});
+    conn.async_send(m, [](const boost::system::error_code ec, dbus::message r) {});
   }
 
   void register_method(std::shared_ptr<DbusMethod> method) {
@@ -302,12 +300,12 @@ class DbusInterface {
   boost::container::flat_map<std::string, std::shared_ptr<DbusSignal>>
       dbus_signals;
   boost::container::flat_map<std::string, dbus_variant> properties_map;
-  std::shared_ptr<dbus::connection> conn;
+  dbus::connection& conn;
 };
 
 class DbusObject {
  public:
-  DbusObject(std::shared_ptr<dbus::connection> conn, std::string object_name)
+  DbusObject(dbus::connection& conn, std::string object_name)
       : object_name(std::move(object_name)), conn(conn) {
     properties_iface = add_interface("org.freedesktop.DBus.Properties");
 
@@ -390,7 +388,7 @@ class DbusObject {
 
     m.pack(object_name, sig);
 
-    conn->send(m, std::chrono::seconds(0));
+    conn.send(m, std::chrono::seconds(0));
   }
 
   auto get_interfaces() { return interfaces; }
@@ -403,7 +401,7 @@ class DbusObject {
   }
 
   std::string object_name;
-  std::shared_ptr<dbus::connection> conn;
+  dbus::connection& conn;
 
   // dbus::filter properties_filter;
   std::shared_ptr<DbusInterface> properties_iface;
@@ -417,7 +415,7 @@ class DbusObject {
 
 class DbusObjectServer {
  public:
-  DbusObjectServer(std::shared_ptr<dbus::connection>& conn) : conn(conn) {
+  DbusObjectServer(dbus::connection& conn) : conn(conn) {
     introspect_filter =
         std::make_unique<dbus::filter>(conn, [](dbus::message m) {
           if (m.get_type() != "method_call") {
@@ -471,13 +469,12 @@ class DbusObjectServer {
         });
   };
 
-  std::shared_ptr<dbus::connection>& get_connection() { return conn; }
+  dbus::connection& get_connection() { return conn; }
   void on_introspect(const boost::system::error_code ec, dbus::message m) {
     auto xml = get_xml_for_path(m.get_path());
     auto ret = dbus::message::new_return(m);
     ret.pack(xml);
-    conn->async_send(
-        ret, [](const boost::system::error_code ec, dbus::message r) {});
+    conn.async_send(ret, [](const boost::system::error_code ec, dbus::message r) {});
 
     introspect_filter->async_dispatch(
         [&](const boost::system::error_code ec, dbus::message m) {
@@ -528,8 +525,7 @@ class DbusObjectServer {
     }
     auto ret = dbus::message::new_return(m);
     ret.pack(dict);
-    conn->async_send(
-        ret, [](const boost::system::error_code ec, dbus::message r) {});
+    conn.async_send(ret, [](const boost::system::error_code ec, dbus::message r) {});
 
     object_manager_filter->async_dispatch(
         [&](const boost::system::error_code ec, dbus::message m) {
@@ -551,7 +547,7 @@ class DbusObjectServer {
     std::remove(objects.begin(), objects.end(), object);
   }
 
-  void flush(void) { conn->flush(); }
+  void flush(void) { conn.flush(); }
 
   std::string get_xml_for_path(const std::string& path) {
     std::string newpath(path);
@@ -677,7 +673,7 @@ class DbusObjectServer {
   }
 
  private:
-  std::shared_ptr<dbus::connection> conn;
+  dbus::connection& conn;
   std::vector<std::shared_ptr<DbusObject>> objects;
   std::unique_ptr<dbus::filter> introspect_filter;
   std::unique_ptr<dbus::filter> object_manager_filter;

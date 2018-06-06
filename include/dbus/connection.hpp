@@ -213,8 +213,6 @@ class connection : public boost::asio::basic_io_object<connection_service> {
   friend class filter;
 };
 
-typedef std::shared_ptr<connection> connection_ptr;
-
 }  // namespace dbus
 
 #endif  // DBUS_CONNECTION_HPP

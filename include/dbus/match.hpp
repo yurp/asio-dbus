@@ -22,16 +22,16 @@ namespace dbus {
  * dispose of the object.
  */
 class match {
-  connection_ptr connection_;
+  connection& connection_;
   std::string expression_;
 
  public:
-  match(connection_ptr c, BOOST_ASIO_MOVE_ARG(std::string) e)
+  match(connection& c, BOOST_ASIO_MOVE_ARG(std::string) e)
       : connection_(c), expression_(BOOST_ASIO_MOVE_CAST(std::string)(e)) {
-    connection_->new_match(*this);
+    connection_.new_match(*this);
   }
 
-  ~match() { connection_->delete_match(*this); }
+  ~match() { connection_.delete_match(*this); }
 
   const std::string& get_expression() const { return expression_; }
 
