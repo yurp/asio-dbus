@@ -10,70 +10,63 @@
 #include <dbus/element.hpp>
 #include <dbus/endpoint.hpp>
 #include <dbus/impl/message_iterator.hpp>
+#include <dbus/support.hpp>
+#include <functional>
 #include <iostream>
+#include <memory>
+#include <variant>
 #include <vector>
-#include <boost/intrusive_ptr.hpp>
-#include <boost/mpl/for_each.hpp>
-#include <boost/utility/enable_if.hpp>
-
-inline void intrusive_ptr_add_ref(DBusMessage* m) { dbus_message_ref(m); }
-
-inline void intrusive_ptr_release(DBusMessage* m) { dbus_message_unref(m); }
 
 namespace dbus {
 
 class message {
  private:
-  boost::intrusive_ptr<DBusMessage> message_;
+  std::shared_ptr<DBusMessage> message_;
 
  public:
   /// Create a method call message
   static message new_call(const endpoint& destination) {
-    auto x = message(dbus_message_new_method_call(
+    return dbus_message_new_method_call(
         destination.get_process_name().c_str(), destination.get_path().c_str(),
-        destination.get_interface().c_str(), destination.get_member().c_str()));
-    dbus_message_unref(x.message_.get());
-    return x;
+        destination.get_interface().c_str(), destination.get_member().c_str());
   }
 
   /// Create a method call message
   static message new_call(const endpoint& destination,
                           const string& method_name) {
-    auto x = message(dbus_message_new_method_call(
+    return dbus_message_new_method_call(
         destination.get_process_name().c_str(), destination.get_path().c_str(),
-        destination.get_interface().c_str(), method_name.c_str()));
-    dbus_message_unref(x.message_.get());
-    return x;
+        destination.get_interface().c_str(), method_name.c_str());
   }
 
   /// Create a method return message
   static message new_return(message& call) {
-    auto x = message(dbus_message_new_method_return(call));
-    dbus_message_unref(x.message_.get());
-    return x;
+    return dbus_message_new_method_return(call);
   }
 
   /// Create an error message
   static message new_error(message& call, const string& error_name,
                            const string& error_message) {
-    auto x = message(dbus_message_new_error(call, error_name.c_str(),
-                                            error_message.c_str()));
-    dbus_message_unref(x.message_.get());
-    return x;
+    return dbus_message_new_error(call, error_name.c_str(),
+        error_message.c_str());
   }
 
   /// Create a signal message
   static message new_signal(const endpoint& origin, const string& signal_name) {
-    auto x = message(dbus_message_new_signal(origin.get_path().c_str(),
-                                             origin.get_interface().c_str(),
-                                             signal_name.c_str()));
-    dbus_message_unref(x.message_.get());
-    return x;
+    return dbus_message_new_signal(origin.get_path().c_str(),
+        origin.get_interface().c_str(),
+        signal_name.c_str());
   }
 
-  message() = delete;
+  message() : message_(nullptr) {}
 
-  message(DBusMessage* m) : message_(m) {}
+  message(nullptr_t) : message_(nullptr) {}
+  message(DBusMessage* m)
+    : message_{
+        dbus_message_ref(m),
+        [] (DBusMessage* p) { if (p) dbus_message_unref(p); }
+      }
+  {}
 
   operator DBusMessage*() { return message_.get(); }
 
@@ -139,21 +132,21 @@ class message {
     }
 
     template <typename Element>
-    typename std::enable_if<is_fixed_type<Element>::value, bool>::type pack(
+    std::enable_if_t<is_fixed_type<Element>::value, bool> pack(
         const Element& e) {
       return iter_.append_basic(element<Element>::code, &e);
     }
 
     template <typename Element>
-    typename std::enable_if<std::is_pointer<Element>::value, bool>::type pack(
+    std::enable_if_t<std::is_pointer<Element>::value, bool> pack(
         const Element e) {
       return pack(*e);
     }
 
     template <typename Container>
-    typename std::enable_if<has_const_iterator<Container>::value &&
-                                !is_string_type<Container>::value,
-                            bool>::type
+    std::enable_if_t<has_const_iterator<Container>::value &&
+                     !is_string_type<Container>::value,
+                     bool>
     pack(const Container& c) {
       message::packer sub;
 
@@ -209,7 +202,7 @@ class message {
 
     bool pack(const dbus_variant& v) {
       // Get the dbus typecode  of the variant being packed
-      const char* type = boost::apply_visitor(
+      const char* type = std::visit(
           [&](auto val) {
             static const constexpr auto sig =
                 element_signature<decltype(val)>::code;
@@ -218,7 +211,7 @@ class message {
           v);
       message::packer sub;
       iter_.open_container(element<dbus_variant>::code, type, sub.iter_);
-      boost::apply_visitor([&](const auto& val) { sub.pack(val); }, v);
+      std::visit([&](const auto& val) { sub.pack(val); }, v);
       iter_.close_container(sub.iter_);
 
       return true;
@@ -248,7 +241,7 @@ class message {
 
     // Basic type unpack
     template <typename Element>
-    typename std::enable_if<is_fixed_type<Element>::value, bool>::type unpack(
+    std::enable_if_t<is_fixed_type<Element>::value, bool> unpack(
         Element& e) {
       if (iter_.get_arg_type() != element<Element>::code) {
         return false;
@@ -319,7 +312,7 @@ class message {
 
       char arg_type = sub.iter_.get_arg_type();
 
-      boost::mpl::for_each<dbus_variant::types>([&](auto t) {
+      variant::for_each<dbus_variant>([&](auto t) {
         if (arg_type == element<decltype(t)>::code) {
           decltype(t) val_to_fill;
           sub.unpack(val_to_fill);
@@ -396,9 +389,9 @@ class message {
     };
 
     template <typename Container>
-    typename std::enable_if<has_emplace_back_method<Container>::value &&
-                                !is_string_type<Container>::value,
-                            bool>::type
+    std::enable_if_t<has_emplace_back_method<Container>::value &&
+                     !is_string_type<Container>::value,
+                     bool>
     unpack(Container& c) {
       auto top_level_arg_type = iter_.get_arg_type();
       constexpr auto type = element_signature<Container>::code[0];
@@ -419,9 +412,9 @@ class message {
     }
 
     template <typename Container>
-    typename std::enable_if<has_emplace_method<Container>::value &&
-                                !is_string_type<Container>::value,
-                            bool>::type
+    std::enable_if_t<has_emplace_method<Container>::value &&
+                     !is_string_type<Container>::value,
+                     bool>
     unpack(Container& c) {
       auto top_level_arg_type = iter_.get_arg_type();
       constexpr auto type = element_signature<Container>::code[0];
@@ -482,7 +475,7 @@ template <class R, class... Args>
 struct function_traits<R(Args...)> {
   using result_type = R;
   using argument_types = std::tuple<Args...>;
-  using decayed_arg_types = std::tuple<typename std::decay<Args>::type...>;
+  using decayed_arg_types = std::tuple<std::decay_t<Args>...>;
 };
 
 // partial specialization for function pointer
@@ -490,7 +483,7 @@ template <class R, class... Args>
 struct function_traits<R (*)(Args...)> {
   using result_type = R;
   using argument_types = std::tuple<Args...>;
-  using decayed_arg_types = std::tuple<typename std::decay<Args>::type...>;
+  using decayed_arg_types = std::tuple<std::decay_t<Args>...>;
 };
 
 // partial specialization for std::function
@@ -498,7 +491,7 @@ template <class R, class... Args>
 struct function_traits<std::function<R(Args...)>> {
   using result_type = R;
   using argument_types = std::tuple<Args...>;
-  using decayed_arg_types = std::tuple<typename std::decay<Args>::type...>;
+  using decayed_arg_types = std::tuple<std::decay_t<Args>...>;
 };
 
 // partial specialization for pointer-to-member-function (i.e., operator()'s)
@@ -506,14 +499,14 @@ template <class T, class R, class... Args>
 struct function_traits<R (T::*)(Args...)> {
   using result_type = R;
   using argument_types = std::tuple<Args...>;
-  using decayed_arg_types = std::tuple<typename std::decay<Args>::type...>;
+  using decayed_arg_types = std::tuple<std::decay_t<Args>...>;
 };
 
 template <class T, class R, class... Args>
 struct function_traits<R (T::*)(Args...) const> {
   using result_type = R;
   using argument_types = std::tuple<Args...>;
-  using decayed_arg_types = std::tuple<typename std::decay<Args>::type...>;
+  using decayed_arg_types = std::tuple<std::decay_t<Args>...>;
 };
 
 template <class F, size_t... Is>

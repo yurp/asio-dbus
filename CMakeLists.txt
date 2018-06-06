@@ -9,7 +9,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 # CMake options
 cmake_minimum_required(VERSION 2.8)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(HUNTER_ENABLED "Enable hunter package pulling" OFF)
@@ -20,26 +20,13 @@ HunterGate(
     SHA1 "baf9c8cc4f65306f0e442b5419967b4c4c04589a"
 )
 
-project(boost-dbus CXX)
+project(asio-dbus CXX)
 
 ###############
 # C++ options
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test)
-
-###############
-# import Boost
-add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
-add_definitions(-DBOOST_SYSTEM_NO_DEPRECATED)
-add_definitions(-DBOOST_ALL_NO_LIB)
-add_definitions(-DBOOST_NO_RTTI)
-add_definitions(-DBOOST_NO_TYPEID)
-hunter_add_package(Boost)
-find_package(Boost REQUIRED)
-
-include_directories(${Boost_INCLUDE_DIRS})
-link_directories(${Boost_LIBRARY_DIRS})
 
 ###############
 # import D-Bus
@@ -51,14 +38,20 @@ hunter_add_package(pthread-stubs)
 find_package (Threads)
 
 ##############
+# import Asio
+add_definitions(-DASIO_STANDALONE)
+add_definitions(-DASIO_HAS_STD_SYSTEM_ERROR)
+add_definitions(-DASIO_HEADER_ONLY)
+
+##############
 # Install
-add_library(boost-dbus INTERFACE)
-target_include_directories(boost-dbus INTERFACE
+add_library(asio-dbus INTERFACE)
+target_include_directories(asio-dbus INTERFACE
                            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
                            $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
 			   ${DBUS_INCLUDE_DIRS})
 
-target_link_libraries(boost-dbus INTERFACE ${DBUS_LIBRARIES})
+target_link_libraries(asio-dbus INTERFACE ${DBUS_LIBRARIES})
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ DESTINATION include)
 
 ##############
@@ -83,11 +76,11 @@ endif()
 target_link_libraries(dbustests ${CMAKE_THREAD_LIBS_INIT})
 add_test(dbustests dbustests "--gtest_output=xml:${test_name}.xml")
 
-target_link_libraries(dbustests boost-dbus)
+target_link_libraries(dbustests asio-dbus)
 
 
 # export targets for find_package config mode
-export(TARGETS boost-dbus
+export(TARGETS asio-dbus
        FILE ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}Targets.cmake)
 
 file(WRITE
@@ -98,7 +91,7 @@ install(FILES
         ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}Config.cmake
         DESTINATION lib/cmake/${CMAKE_PROJECT_NAME})
 
-install(TARGETS boost-dbus
+install(TARGETS asio-dbus
         EXPORT ${CMAKE_PROJECT_NAME}Targets
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

@@ -9,14 +9,14 @@
 #include <dbus/dbus.h>
 #include <dbus/detail/watch_timeout.hpp>
 
-#include <boost/atomic.hpp>
+#include <atomic>
 
 namespace dbus {
 namespace impl {
 
 class connection {
  public:
-  boost::atomic<bool> is_paused;
+  std::atomic<bool> is_paused;
 
  private:
   DBusConnection* conn;
@@ -29,7 +29,7 @@ class connection {
   connection(connection&&) = delete;
   connection& operator=(connection&&) = delete;
 
-  void open(boost::asio::io_service& io, int bus) {
+  void open(asio::io_service& io, int bus) {
     error e;
     conn = dbus_bus_get_private((DBusBusType)bus, e);
     e.throw_if_set();
@@ -39,7 +39,7 @@ class connection {
     detail::set_watch_timeout_dispatch_functions(conn, io);
   }
 
-  void open(boost::asio::io_service& io, const string& address) {
+  void open(asio::io_service& io, const string& address) {
     error e;
     conn = dbus_connection_open_private(address.c_str(), e);
     e.throw_if_set();
@@ -110,7 +110,7 @@ class connection {
 
   // begin asynchronous operation
   // FIXME should not get io from an argument
-  void start(boost::asio::io_service& io) {
+  void start(asio::io_service& io) {
     bool old_value(true);
     if (is_paused.compare_exchange_strong(old_value, false)) {
       // If two threads call connection::async_send()
@@ -121,7 +121,7 @@ class connection {
     }
   }
 
-  void cancel(boost::asio::io_service& io) {
+  void cancel(asio::io_service& io) {
     bool old_value(false);
     if (is_paused.compare_exchange_strong(old_value, true)) {
       // TODO

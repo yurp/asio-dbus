@@ -13,14 +13,14 @@
 #include <unistd.h>
 #include <gtest/gtest.h>
 
-using namespace boost::asio;
+using namespace asio;
 using namespace dbus;
-using boost::system::error_code;
+using asio::error_code;
 
 TEST(ErrorTest, GetHostName) {
   io_service io;
   EXPECT_THROW(connection system_bus(io, "unix:path=/foo/bar/baz_socket"),
-               boost::system::system_error);
+               asio::system_error);
 
   io.run();
 }

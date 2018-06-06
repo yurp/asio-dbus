@@ -8,8 +8,8 @@
 
 #include <deque>
 #include <functional>
-#include <boost/asio.hpp>
-#include <boost/asio/detail/mutex.hpp>
+#include <asio.hpp>
+#include <asio/detail/mutex.hpp>
 
 namespace dbus {
 namespace detail {
@@ -17,18 +17,18 @@ namespace detail {
 template <typename Message>
 class queue {
  public:
-  typedef ::boost::asio::detail::mutex mutex_type;
+  typedef ::asio::detail::mutex mutex_type;
   typedef Message message_type;
-  typedef std::function<void(boost::system::error_code, Message)> handler_type;
+  typedef std::function<void(asio::error_code, Message)> handler_type;
 
  private:
-  boost::asio::io_service& io;
+  asio::io_service& io;
   mutex_type mutex;
   std::deque<message_type> messages;
   std::deque<handler_type> handlers;
 
  public:
-  queue(boost::asio::io_service& io_service) : io(io_service) {}
+  queue(asio::io_service& io_service) : io(io_service) {}
 
   queue(const queue<Message>& m)
       : io(m.io), messages(m.messages), handlers(m.handlers) {
@@ -39,12 +39,12 @@ class queue {
   class closure {
     handler_type handler_;
     message_type message_;
-    boost::system::error_code error_;
+    asio::error_code error_;
 
    public:
     void operator()() { handler_(error_, message_); }
     closure(handler_type h, Message m,
-            boost::system::error_code e = boost::system::error_code())
+            asio::error_code e = asio::error_code())
         : handler_(h), message_(m), error_(e) {}
   };
 
@@ -64,19 +64,19 @@ class queue {
   }
 
   template <typename MessageHandler>
-  inline BOOST_ASIO_INITFN_RESULT_TYPE(MessageHandler,
-                                       void(boost::system::error_code,
+  inline ASIO_INITFN_RESULT_TYPE(MessageHandler,
+                                 void(asio::error_code,
                                             message_type))
-      async_pop(BOOST_ASIO_MOVE_ARG(MessageHandler) h) {
-    typedef ::boost::asio::detail::async_result_init<
-        MessageHandler, void(boost::system::error_code, message_type)>
+      async_pop(ASIO_MOVE_ARG(MessageHandler) h) {
+    typedef ::asio::async_completion<
+        MessageHandler, void(asio::error_code, message_type)>
         init_type;
 
     mutex_type::scoped_lock lock(mutex);
     if (messages.empty()) {
-      init_type init(BOOST_ASIO_MOVE_CAST(MessageHandler)(h));
+      init_type init(h);
 
-      handlers.push_back(init.handler);
+      handlers.push_back(init.completion_handler);
 
       lock.unlock();
 
@@ -88,9 +88,9 @@ class queue {
 
       lock.unlock();
 
-      init_type init(BOOST_ASIO_MOVE_CAST(MessageHandler)(h));
+      init_type init(h);
 
-      io.post(closure(init.handler, m));
+      io.post(closure(init.completion_handler, m));
 
       return init.result.get();
     }

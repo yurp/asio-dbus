@@ -17,7 +17,7 @@ static const std::string dbus_boilerplate(
     "introspect.dtd\">\n");
 
 TEST(DbusPropertiesInterface, EmptyObjectServer) {
-  boost::asio::io_service io;
+  asio::io_service io;
   dbus::connection system_bus(io, dbus::bus::system);
 
   // Set up the object server, and send some test events
@@ -28,7 +28,7 @@ TEST(DbusPropertiesInterface, EmptyObjectServer) {
 }
 
 TEST(DbusPropertiesInterface, BasicObjectServer) {
-  boost::asio::io_service io;
+  asio::io_service io;
   dbus::connection system_bus(io, dbus::bus::system);
 
   // Set up the object server, and send some test events
@@ -58,7 +58,7 @@ TEST(DbusPropertiesInterface, BasicObjectServer) {
 }
 
 TEST(DbusPropertiesInterface, SharedNodeObjectServer) {
-  boost::asio::io_service io;
+  asio::io_service io;
   dbus::connection system_bus(io, dbus::bus::system);
 
   // Set up the object server, and send some test events
@@ -100,7 +100,7 @@ TEST(LambdaDbusMethodTest, Basic) {
     lambda_called = true;
     return std::make_tuple<int64_t, int32_t>(4L, 2);
   };
-  boost::asio::io_service io;
+  asio::io_service io;
   dbus::connection bus(io, dbus::bus::session);
   auto dbus_method =
       dbus::LambdaDbusMethod<decltype(lambda)>("foo", bus, lambda);
@@ -118,7 +118,7 @@ TEST(LambdaDbusMethodTest, Basic) {
 }
 
 TEST(DbusPropertiesInterface, ObjectServer) {
-  boost::asio::io_service io;
+  asio::io_service io;
   dbus::connection bus(io, dbus::bus::session);
 
   // Set up the object server, and send some test objects
@@ -139,7 +139,7 @@ TEST(DbusPropertiesInterface, ObjectServer) {
     dbus::message m = dbus::message::new_call(test_daemon, "Introspect");
     completion_count++;
     bus.async_send(
-        m, [&](const boost::system::error_code ec, dbus::message r) {
+        m, [&](const asio::error_code ec, dbus::message r) {
           if (ec) {
             std::string error;
             r.unpack(error);
@@ -176,7 +176,7 @@ TEST(DbusPropertiesInterface, ObjectServer) {
 }
 
 TEST(DbusPropertiesInterface, EmptyMethodServer) {
-  boost::asio::io_service io;
+  asio::io_service io;
   dbus::connection bus(io, dbus::bus::session);
 
   // Set up the object server, and send some test objects
@@ -188,13 +188,12 @@ TEST(DbusPropertiesInterface, EmptyMethodServer) {
                              "org.freedesktop.DBus.Introspectable");
   dbus::message m = dbus::message::new_call(test_daemon, "Introspect");
 
-  bus.async_send(m, [&](const boost::system::error_code ec, dbus::message r) {
+  bus.async_send(m, [&](const asio::error_code ec, dbus::message r) {
     if (ec) {
       std::string error;
       r.unpack(error);
       FAIL() << ec << error;
     } else {
-      std::cout << r;
       std::string xml;
       r.unpack(xml);
       EXPECT_EQ(r.get_type(), "method_return");
@@ -223,7 +222,7 @@ class TestClass {
 };
 
 TEST(DbusPropertiesInterface, MethodServer) {
-  boost::asio::io_service io;
+  asio::io_service io;
   dbus::connection bus(io, dbus::bus::session);
 
   // Set up the object server, and send some test objects
@@ -289,7 +288,7 @@ TEST(DbusPropertiesInterface, MethodServer) {
                              "org.freedesktop.DBus.Introspectable");
   dbus::message m = dbus::message::new_call(test_daemon, "Introspect");
 
-  bus.async_send(m, [&](const boost::system::error_code ec, dbus::message r) {
+  bus.async_send(m, [&](const asio::error_code ec, dbus::message r) {
     if (ec) {
       std::string error;
       r.unpack(error);
@@ -314,7 +313,7 @@ TEST(DbusPropertiesInterface, MethodServer) {
 }
 
 TEST(DbusPropertiesInterface, PropertiesInterface) {
-  boost::asio::io_service io;
+  asio::io_service io;
   dbus::connection bus(io, dbus::bus::session);
 
   // Set up the object server, and send some test objects
@@ -336,12 +335,12 @@ TEST(DbusPropertiesInterface, PropertiesInterface) {
 
   outstanding_async_calls++;
   bus.async_method_call(
-      [&](const boost::system::error_code ec, dbus::dbus_variant value) {
+      [&](const asio::error_code ec, dbus::dbus_variant value) {
         outstanding_async_calls--;
         if (ec) {
           FAIL() << ec;
         } else {
-          EXPECT_EQ(boost::get<uint32_t>(value), 26);
+          EXPECT_EQ(std::get<uint32_t>(value), 26);
         }
         if (outstanding_async_calls == 0) {
           io.stop();
@@ -355,7 +354,7 @@ TEST(DbusPropertiesInterface, PropertiesInterface) {
 
   outstanding_async_calls++;
   bus.async_method_call(
-      [&](const boost::system::error_code ec,
+      [&](const asio::error_code ec,
           std::vector<std::pair<std::string, dbus::dbus_variant>> value) {
         outstanding_async_calls--;
         if (ec) {

@@ -11,7 +11,7 @@
 #include <dbus/message.hpp>
 #include <chrono>
 #include <string>
-#include <boost/asio.hpp>
+#include <asio.hpp>
 
 namespace dbus {
 
@@ -22,7 +22,7 @@ class match;
 /**
  * A connection to a bus, through which messages may be sent or received.
  */
-class connection : public boost::asio::basic_io_object<connection_service> {
+class connection : public asio::basic_io_object<connection_service> {
  public:
   /// Open a connection to a specified address.
   /**
@@ -31,9 +31,9 @@ class connection : public boost::asio::basic_io_object<connection_service> {
  *
  * @param address The address of the bus to connect to.
  *
- * @throws boost::system::system_error When opening the connection failed.
+ * @throws asio::system_error When opening the connection failed.
  */
-  connection(boost::asio::io_service& io, const string& address)
+  connection(asio::io_service& io, const string& address)
       : basic_io_object<connection_service>(io) {
     this->get_service().open(this->get_implementation(), address);
   }
@@ -45,10 +45,10 @@ class connection : public boost::asio::basic_io_object<connection_service> {
  *
  * @param bus The well-known bus to connect to.
  *
- * @throws boost::system::system_error When opening the connection failed.
+ * @throws asio::system_error When opening the connection failed.
  */
   // TODO: change this unsigned to an enumeration
-  connection(boost::asio::io_service& io, const int bus)
+  connection(asio::io_service& io, const int bus)
       : basic_io_object<connection_service>(io) {
     this->get_service().open(this->get_implementation(), bus);
   }
@@ -59,7 +59,7 @@ class connection : public boost::asio::basic_io_object<connection_service> {
  *
  * @return
  *
- * @throws boost::system::system_error When the response timed out or
+ * @throws asio::system_error When the response timed out or
  * there was some other error.
  */
   void request_name(const string& name) {
@@ -76,7 +76,7 @@ class connection : public boost::asio::basic_io_object<connection_service> {
  *
  * @return The new reply message
  *
- * @throws boost::system::system_error When the response timed out or
+ * @throws asio::system_error When the response timed out or
  * there was some other error.
  */
   message reply(message& m) {
@@ -89,7 +89,7 @@ class connection : public boost::asio::basic_io_object<connection_service> {
  *
  * @return The reply received.
  *
- * @throws boost::system::system_error When the response timed out or
+ * @throws asio::system_error When the response timed out or
  * there was some other error.
  */
   message send(message& m) {
@@ -105,7 +105,7 @@ class connection : public boost::asio::basic_io_object<connection_service> {
  *
  * @return The reply received.
  *
- * @throws boost::system::system_error When the response timed out (if
+ * @throws asio::system_error When the response timed out (if
  * timeout was not 0), or there was some other error.
  */
   template <typename Duration>
@@ -131,12 +131,12 @@ class connection : public boost::asio::basic_io_object<connection_service> {
  */
 
   template <typename MessageHandler>
-  inline BOOST_ASIO_INITFN_RESULT_TYPE(MessageHandler,
-                                       void(boost::system::error_code, message))
-      async_send(message& m, BOOST_ASIO_MOVE_ARG(MessageHandler) handler) {
+  inline ASIO_INITFN_RESULT_TYPE(MessageHandler,
+                                 void(asio::error_code, message))
+      async_send(message& m, ASIO_MOVE_ARG(MessageHandler) handler) {
     return this->get_service().async_send(
         this->get_implementation(), m,
-        BOOST_ASIO_MOVE_CAST(MessageHandler)(handler));
+        ASIO_MOVE_CAST(MessageHandler)(handler));
   }
 
   // Small helper class for stipping off the error code from the function
@@ -160,7 +160,7 @@ class connection : public boost::asio::basic_io_object<connection_service> {
       // explicit copy of handler here.  At this time, not clear why a copy is
       // needed
       return async_send(
-          m, [handler](boost::system::error_code ec, dbus::message r) {
+          m, [handler](asio::error_code ec, dbus::message r) {
             // Make a copy of the error code so we can modify it
             typedef typename function_traits<MessageHandler>::decayed_arg_types
                 function_tuple;
@@ -169,8 +169,7 @@ class connection : public boost::asio::basic_io_object<connection_service> {
             if (!ec) {
               if (!unpack_into_tuple(response_args, r)) {
                 // Set error code
-                ec = boost::system::errc::make_error_code(
-                    boost::system::errc::invalid_argument);
+                ec = asio::error::invalid_argument;
               }
             }
             // Should this (the callback) be done in a try catch block?

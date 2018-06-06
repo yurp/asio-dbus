@@ -6,8 +6,8 @@
 #ifndef DBUS_CONNECTION_SERVICE_HPP
 #define DBUS_CONNECTION_SERVICE_HPP
 
-#include <boost/asio.hpp>
-#include <boost/asio/io_service.hpp>
+#include <asio.hpp>
+#include <asio/io_service.hpp>
 
 #include <dbus/detail/async_send_op.hpp>
 #include <dbus/element.hpp>
@@ -28,12 +28,12 @@ class match;
 class connection;
 
 class connection_service
-    : public boost::asio::detail::service_base<connection_service> {
+    : public asio::detail::service_base<connection_service> {
  public:
   typedef impl::connection implementation_type;
 
-  inline explicit connection_service(boost::asio::io_service& io)
-      : boost::asio::detail::service_base<connection_service>(io) {}
+  inline explicit connection_service(asio::io_service& io)
+      : asio::detail::service_base<connection_service>(io) {}
 
   inline void construct(implementation_type& impl) {}
 
@@ -44,13 +44,13 @@ class connection_service
   }
 
   inline void open(implementation_type& impl, const string& address) {
-    boost::asio::io_service& io = this->get_io_service();
+    asio::io_service& io = this->get_io_service();
 
     impl.open(io, address);
   }
 
   inline void open(implementation_type& impl, const int bus = bus::system) {
-    boost::asio::io_service& io = this->get_io_service();
+    asio::io_service& io = this->get_io_service();
 
     impl.open(io, bus);
   }
@@ -74,20 +74,19 @@ class connection_service
   }
 
   template <typename MessageHandler>
-  inline BOOST_ASIO_INITFN_RESULT_TYPE(MessageHandler,
-                                       void(boost::system::error_code, message))
+  inline ASIO_INITFN_RESULT_TYPE(MessageHandler,
+                                 void(asio::error_code, message))
       async_send(implementation_type& impl, message& m,
-                 BOOST_ASIO_MOVE_ARG(MessageHandler) handler) {
+                 ASIO_MOVE_ARG(MessageHandler) handler) {
     // begin asynchronous operation
     impl.start(this->get_io_service());
 
-    boost::asio::detail::async_result_init<
-        MessageHandler, void(boost::system::error_code, message)>
-        init(BOOST_ASIO_MOVE_CAST(MessageHandler)(handler));
-    detail::async_send_op<typename boost::asio::handler_type<
-        MessageHandler, void(boost::system::error_code, message)>::type>(
-        this->get_io_service(),
-        BOOST_ASIO_MOVE_CAST(MessageHandler)(init.handler))(impl, m);
+    asio::async_completion<
+        MessageHandler, void(asio::error_code, message)>
+        init(handler);
+    detail::async_send_op<typename asio::handler_type<
+        MessageHandler, void(asio::error_code, message)>::type>(
+        this->get_io_service(), init.completion_handler)(impl, m);
 
     return init.result.get();
   }

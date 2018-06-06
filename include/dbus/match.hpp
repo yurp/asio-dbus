@@ -7,7 +7,7 @@
 #define DBUS_MATCH_HPP
 
 #include <string>
-#include <boost/asio.hpp>
+#include <asio.hpp>
 
 #include <dbus/connection.hpp>
 #include <dbus/error.hpp>
@@ -26,8 +26,8 @@ class match {
   std::string expression_;
 
  public:
-  match(connection& c, BOOST_ASIO_MOVE_ARG(std::string) e)
-      : connection_(c), expression_(BOOST_ASIO_MOVE_CAST(std::string)(e)) {
+  match(connection& c, ASIO_MOVE_ARG(std::string) e)
+      : connection_(c), expression_(ASIO_MOVE_CAST(std::string)(e)) {
     connection_.new_match(*this);
   }
 

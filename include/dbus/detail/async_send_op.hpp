@@ -6,7 +6,7 @@
 #ifndef DBUS_ASYNC_SEND_OP_HPP
 #define DBUS_ASYNC_SEND_OP_HPP
 
-#include <boost/scoped_ptr.hpp>
+#include <memory>
 
 #include <dbus/dbus.h>
 #include <dbus/error.hpp>
@@ -19,24 +19,22 @@ namespace detail {
 
 template <typename MessageHandler>
 struct async_send_op {
-  boost::asio::io_service& io_;
+  asio::io_service& io_;
   // TODO(ed) Instead of making message_ a unique_ptr, should probably split
   // async_send_op into 2 classes, one that expects a return, and one that does
   // not
   std::shared_ptr<message> message_;
   MessageHandler handler_;
-  async_send_op(boost::asio::io_service& io,
-                BOOST_ASIO_MOVE_ARG(MessageHandler) handler);
+  async_send_op(asio::io_service& io, MessageHandler& handler);
   static void callback(DBusPendingCall* p, void* userdata);  // for C API
   void operator()(impl::connection& c, message& m);  // initiate operation
   void operator()();  // bound completion handler form
 };
 
 template <typename MessageHandler>
-async_send_op<MessageHandler>::async_send_op(boost::asio::io_service& io,
-                                             BOOST_ASIO_MOVE_ARG(MessageHandler)
-                                                 handler)
-    : io_(io), handler_(BOOST_ASIO_MOVE_CAST(MessageHandler)(handler)) {}
+async_send_op<MessageHandler>::async_send_op(asio::io_service& io,
+                                             MessageHandler& handler)
+    : io_(io), handler_(ASIO_MOVE_CAST(MessageHandler)(handler)) {}
 
 template <typename MessageHandler>
 void async_send_op<MessageHandler>::operator()(impl::connection& c,
@@ -54,7 +52,7 @@ void async_send_op<MessageHandler>::operator()(impl::connection& c,
     // We have to throw this onto the heap so that the
     // C API can store it as `void *userdata`
     async_send_op* op =
-        new async_send_op(BOOST_ASIO_MOVE_CAST(async_send_op)(*this));
+        new async_send_op(ASIO_MOVE_CAST(async_send_op)(*this));
     // dbus_pending_call_unref(p);
 
     dbus_pending_call_set_notify(p, &callback, op, NULL);
@@ -74,13 +72,13 @@ void async_send_op<MessageHandler>::operator()(impl::connection& c,
 template <typename MessageHandler>
 void async_send_op<MessageHandler>::callback(DBusPendingCall* p,
                                              void* userdata) {
-  boost::scoped_ptr<async_send_op> op(static_cast<async_send_op*>(userdata));
+  std::unique_ptr<async_send_op> op(static_cast<async_send_op*>(userdata));
   auto x = dbus_pending_call_steal_reply(p);
   op->message_ = std::make_shared<message>(x);
   dbus_message_unref(x);
   dbus_pending_call_unref(p);
 
-  op->io_.post(BOOST_ASIO_MOVE_CAST(async_send_op)(*op));
+  op->io_.post(ASIO_MOVE_CAST(async_send_op)(*op));
 }
 
 template <typename MessageHandler>

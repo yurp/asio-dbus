@@ -10,7 +10,7 @@
 #include <dbus/detail/queue.hpp>
 #include <dbus/message.hpp>
 #include <functional>
-#include <boost/asio.hpp>
+#include <asio.hpp>
 
 namespace dbus {
 
@@ -31,9 +31,9 @@ class filter {
   }
 
   template <typename MessagePredicate>
-  filter(connection& c, BOOST_ASIO_MOVE_ARG(MessagePredicate) p)
+  filter(connection& c, ASIO_MOVE_ARG(MessagePredicate) p)
       : connection_(c),
-        predicate_(BOOST_ASIO_MOVE_CAST(MessagePredicate)(p)),
+        predicate_(ASIO_MOVE_CAST(MessagePredicate)(p)),
         queue_(connection_.get_io_service()) {
     connection_.new_filter(*this);
   }
@@ -41,13 +41,13 @@ class filter {
   ~filter() { connection_.delete_filter(*this); }
 
   template <typename MessageHandler>
-  inline BOOST_ASIO_INITFN_RESULT_TYPE(MessageHandler,
-                                       void(boost::system::error_code, message))
-      async_dispatch(BOOST_ASIO_MOVE_ARG(MessageHandler) handler) {
+  inline ASIO_INITFN_RESULT_TYPE(MessageHandler,
+                                       void(asio::error_code, message))
+      async_dispatch(ASIO_MOVE_ARG(MessageHandler) handler) {
     // begin asynchronous operation
     connection_.get_implementation().start(connection_.get_io_service());
 
-    return queue_.async_pop(BOOST_ASIO_MOVE_CAST(MessageHandler)(handler));
+    return queue_.async_pop(ASIO_MOVE_CAST(MessageHandler)(handler));
   }
 };
 }  // namespace dbus

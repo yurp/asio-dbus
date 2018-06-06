@@ -9,15 +9,15 @@
 #include <dbus/dbus.h>
 #include <dbus/element.hpp>
 #include <dbus/message.hpp>
-#include <boost/system/error_code.hpp>
-#include <boost/system/system_error.hpp>
+#include <asio/error_code.hpp>
+#include <asio/system_error.hpp>
 
 namespace dbus {
 
 namespace detail {
 
-class error_category : public boost::system::error_category {
-  const char *name() const BOOST_SYSTEM_NOEXCEPT { return "dbus.error"; }
+class error_category : public asio::error_category {
+  const char *name() const ASIO_NOEXCEPT { return "dbus.error"; }
 
   string message(int value) const {
     if (value)
@@ -29,7 +29,7 @@ class error_category : public boost::system::error_category {
 
 }  // namespace detail
 
-inline const boost::system::error_category &get_dbus_category() {
+inline const asio::error_category &get_dbus_category() {
   static detail::error_category instance;
   return instance;
 }
@@ -64,17 +64,17 @@ class error {
 
   operator DBusError *() { return &error_; }
 
-  boost::system::error_code error_code() const;
-  boost::system::system_error system_error() const;
+  asio::error_code error_code() const;
+  asio::system_error system_error() const;
   void throw_if_set() const;
 };
 
-inline boost::system::error_code error::error_code() const {
-  return boost::system::error_code(is_set(), get_dbus_category());
+inline asio::error_code error::error_code() const {
+  return asio::error_code(is_set(), get_dbus_category());
 }
 
-inline boost::system::system_error error::system_error() const {
-  return boost::system::system_error(
+inline asio::system_error error::system_error() const {
+  return asio::system_error(
       error_code(), string(error_.name) + ":" + error_.message);
 }
 

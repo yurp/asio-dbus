@@ -5,11 +5,11 @@
 #include <dbus/filter.hpp>
 #include <dbus/match.hpp>
 #include <functional>
+#include <map>
+#include <set>
 #include <tuple>
 #include <type_traits>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/container/flat_map.hpp>
-#include <boost/container/flat_set.hpp>
+#include <vector>
 
 namespace dbus {
 struct DbusArgument {
@@ -36,19 +36,17 @@ enum class UpdateType { VALUE_CHANGE_ONLY, FORCE };
 // Base case for when I == the size of the tuple args.  Does nothing, as we
 // should be done
 template <std::size_t TupleIndex = 0, typename... Tp>
-inline typename std::enable_if<TupleIndex == sizeof...(Tp), void>::type
+inline std::enable_if_t<TupleIndex == sizeof...(Tp)>
 arg_types(bool in, std::tuple<Tp...>& t, std::vector<DbusArgument>& v,
           const std::vector<std::string>* arg_names = nullptr) {}
 
 // Case for when I < the size of tuple args.  Unpacks the tuple type into the
 // dbusargument object and names it appropriately.
 template <std::size_t TupleIndex = 0, typename... Tp>
-    inline typename std::enable_if <
-    TupleIndex<sizeof...(Tp), void>::type arg_types(
-        bool in, std::tuple<Tp...>& t, std::vector<DbusArgument>& v,
-        const std::vector<std::string>* arg_names = nullptr) {
-  typedef typename std::tuple_element<TupleIndex, std::tuple<Tp...>>::type
-      element_type;
+inline std::enable_if_t<TupleIndex<sizeof...(Tp)>
+arg_types(bool in, std::tuple<Tp...>& t, std::vector<DbusArgument>& v,
+          const std::vector<std::string>* arg_names = nullptr) {
+  typedef std::tuple_element_t<TupleIndex, std::tuple<Tp...>> element_type;
   auto constexpr sig = element_signature<element_type>::code;
   std::string name;
   std::string direction;
@@ -181,16 +179,16 @@ class DbusInterface {
   DbusInterface(std::string interface_name,
                 dbus::connection& conn)
       : interface_name(std::move(interface_name)), conn(conn) {}
-  virtual boost::container::flat_map<std::string, std::shared_ptr<DbusSignal>>
+  virtual const std::map<std::string, std::shared_ptr<DbusSignal>>&
   get_signals() {
     return dbus_signals;
   };
-  virtual boost::container::flat_map<std::string, std::shared_ptr<DbusMethod>>
+  virtual const std::map<std::string, std::shared_ptr<DbusMethod>>&
   get_methods() {
     return dbus_methods;
   };
   virtual std::string get_interface_name() { return interface_name; };
-  virtual const boost::container::flat_map<std::string, dbus_variant>
+  virtual const std::map<std::string, dbus_variant>&
   get_properties_map() {
     return properties_map;
   };
@@ -253,7 +251,7 @@ class DbusInterface {
     static const std::vector<std::string> empty;
     m.pack(get_interface_name(), updates, empty);
     // TODO(ed) make sure this doesn't block
-    conn.async_send(m, [](const boost::system::error_code ec, dbus::message r) {});
+    conn.async_send(m, [](const asio::error_code ec, dbus::message r) {});
   }
 
   void register_method(std::shared_ptr<DbusMethod> method) {
@@ -295,11 +293,9 @@ class DbusInterface {
 
   std::string object_name;
   std::string interface_name;
-  boost::container::flat_map<std::string, std::shared_ptr<DbusMethod>>
-      dbus_methods;
-  boost::container::flat_map<std::string, std::shared_ptr<DbusSignal>>
-      dbus_signals;
-  boost::container::flat_map<std::string, dbus_variant> properties_map;
+  std::map<std::string, std::shared_ptr<DbusMethod>> dbus_methods;
+  std::map<std::string, std::shared_ptr<DbusSignal>> dbus_signals;
+  std::map<std::string, dbus_variant> properties_map;
   dbus::connection& conn;
 };
 
@@ -391,7 +387,7 @@ class DbusObject {
     conn.send(m, std::chrono::seconds(0));
   }
 
-  auto get_interfaces() { return interfaces; }
+  auto const& get_interfaces() const { return interfaces; }
 
   void call(dbus::message& m) {
     auto interface = interfaces.find(m.get_interface());
@@ -408,9 +404,8 @@ class DbusObject {
 
   std::shared_ptr<DbusInterface> object_manager_iface;
 
-  std::function<void(boost::system::error_code, message)> callback;
-  boost::container::flat_map<std::string, std::shared_ptr<DbusInterface>>
-      interfaces;
+  std::function<void(asio::error_code, message)> callback;
+  std::map<std::string, std::shared_ptr<DbusInterface>> interfaces;
 };
 
 class DbusObjectServer {
@@ -431,7 +426,7 @@ class DbusObjectServer {
         });
 
     introspect_filter->async_dispatch(
-        [&](const boost::system::error_code ec, dbus::message m) {
+        [&](const asio::error_code ec, dbus::message m) {
           on_introspect(ec, m);
         });
 
@@ -451,7 +446,7 @@ class DbusObjectServer {
         });
 
     object_manager_filter->async_dispatch(
-        [&](const boost::system::error_code ec, dbus::message m) {
+        [&](const asio::error_code ec, dbus::message m) {
           on_get_managed_objects(ec, m);
         });
 
@@ -464,25 +459,25 @@ class DbusObjectServer {
     });
 
     method_filter->async_dispatch(
-        [&](const boost::system::error_code ec, dbus::message m) {
+        [&](const asio::error_code ec, dbus::message m) {
           on_method_call(ec, m);
         });
   };
 
   dbus::connection& get_connection() { return conn; }
-  void on_introspect(const boost::system::error_code ec, dbus::message m) {
+  void on_introspect(const asio::error_code ec, dbus::message m) {
     auto xml = get_xml_for_path(m.get_path());
     auto ret = dbus::message::new_return(m);
     ret.pack(xml);
-    conn.async_send(ret, [](const boost::system::error_code ec, dbus::message r) {});
+    conn.async_send(ret, [](const asio::error_code ec, dbus::message r) {});
 
     introspect_filter->async_dispatch(
-        [&](const boost::system::error_code ec, dbus::message m) {
+        [&](const asio::error_code ec, dbus::message m) {
           on_introspect(ec, m);
         });
   }
 
-  void on_method_call(const boost::system::error_code ec, dbus::message m) {
+  void on_method_call(const asio::error_code ec, dbus::message m) {
     if (ec) {
       std::cerr << "on_method_call error: " << ec << "\n";
     } else {
@@ -496,12 +491,12 @@ class DbusObjectServer {
       }
     }
     method_filter->async_dispatch(
-        [&](const boost::system::error_code ec, dbus::message m) {
+        [&](const asio::error_code ec, dbus::message m) {
           on_method_call(ec, m);
         });
   }
 
-  void on_get_managed_objects(const boost::system::error_code ec,
+  void on_get_managed_objects(const asio::error_code ec,
                               dbus::message m) {
     typedef std::vector<std::pair<std::string, dbus::dbus_variant>>
         properties_dict;
@@ -525,10 +520,10 @@ class DbusObjectServer {
     }
     auto ret = dbus::message::new_return(m);
     ret.pack(dict);
-    conn.async_send(ret, [](const boost::system::error_code ec, dbus::message r) {});
+    conn.async_send(ret, [](const asio::error_code ec, dbus::message r) {});
 
     object_manager_filter->async_dispatch(
-        [&](const boost::system::error_code ec, dbus::message m) {
+        [&](const asio::error_code ec, dbus::message m) {
           on_get_managed_objects(ec, m);
         });
   }
@@ -556,7 +551,7 @@ class DbusObjectServer {
       newpath.assign("");
     }
 
-    boost::container::flat_set<std::string> node_names;
+    std::set<std::string> node_names;
     std::string xml(
         "<!DOCTYPE node PUBLIC "
         "\"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\" "
@@ -639,7 +634,7 @@ class DbusObjectServer {
             xml += property.first;
             xml += "\" type=\"";
 
-            std::string type = std::string(boost::apply_visitor(
+            std::string type = std::string(std::visit(
                 [&](auto val) {
                   static const auto constexpr sig =
                       element_signature<decltype(val)>::code;
@@ -655,7 +650,7 @@ class DbusObjectServer {
           }
           xml += "</interface>";
         }
-      } else if (boost::starts_with(object_name, newpath)) {
+      } else if (object_name.find(newpath) == 0) {
         auto slash_index = object_name.find("/", newpath.size() + 1);
         auto subnode = object_name.substr(newpath.size() + 1,
                                           slash_index - newpath.size() - 1);

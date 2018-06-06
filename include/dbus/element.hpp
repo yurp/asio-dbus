@@ -9,8 +9,8 @@
 #include <dbus/dbus.h>
 #include <string>
 #include <vector>
-#include <boost/cstdint.hpp>
-#include <boost/variant.hpp>
+#include <cstdint>
+#include <variant>
 
 namespace dbus {
 
@@ -20,21 +20,21 @@ namespace dbus {
  */
 // bool // is this simply valid? It might pack wrong...
 // http://maemo.org/api_refs/5.0/5.0-final/dbus/api/group__DBusTypes.html
-typedef boost::uint8_t byte;
+typedef std::uint8_t byte;
 
-typedef boost::int16_t int16;
-typedef boost::uint16_t uint16;
-typedef boost::int32_t int32;
-typedef boost::uint32_t uint32;
+typedef std::int16_t int16;
+typedef std::uint16_t uint16;
+typedef std::int32_t int32;
+typedef std::uint32_t uint32;
 
-typedef boost::int64_t int64;
-typedef boost::uint64_t uint64;
+typedef std::int64_t int64;
+typedef std::uint64_t uint64;
 // double
 // unix_fd
 
 typedef std::string string;
 
-typedef boost::variant<std::string, bool, byte, int16, uint16, int32, uint32,
+typedef std::variant<std::string, bool, byte, int16, uint16, int32, uint32,
                        int64, uint64, double>
     dbus_variant;
 
@@ -125,47 +125,29 @@ struct element<std::vector<Element>> {
   static constexpr int code = DBUS_TYPE_ARRAY;
 };
 
-template <typename InvalidType>
-struct is_fixed_type : std::false_type {};
+template <typename T>
+struct is_fixed_type
+  : std::integral_constant<
+    bool,
+    std::is_same<  bool, std::remove_cv_t<T>>::value ||
+    std::is_same<  byte, std::remove_cv_t<T>>::value ||
+    std::is_same< int16, std::remove_cv_t<T>>::value ||
+    std::is_same<uint16, std::remove_cv_t<T>>::value ||
+    std::is_same< int32, std::remove_cv_t<T>>::value ||
+    std::is_same<uint32, std::remove_cv_t<T>>::value ||
+    std::is_same< int64, std::remove_cv_t<T>>::value ||
+    std::is_same<uint64, std::remove_cv_t<T>>::value ||
+    std::is_same<double, std::remove_cv_t<T>>::value
+  > {};
 
-template <>
-struct is_fixed_type<bool> : std::true_type {};
-
-template <>
-struct is_fixed_type<byte> : std::true_type {};
-
-template <>
-struct is_fixed_type<int16> : std::true_type {};
-
-template <>
-struct is_fixed_type<uint16> : std::true_type {};
-
-template <>
-struct is_fixed_type<int32> : std::true_type {};
-
-template <>
-struct is_fixed_type<uint32> : std::true_type {};
-
-template <>
-struct is_fixed_type<int64> : std::true_type {};
-
-template <>
-struct is_fixed_type<uint64> : std::true_type {};
-
-template <>
-struct is_fixed_type<double> : std::true_type {};
-
-template <typename InvalidType>
-struct is_string_type : std::false_type {};
-
-template <>
-struct is_string_type<string> : std::true_type {};
-
-template <>
-struct is_string_type<object_path> : std::true_type {};
-
-template <>
-struct is_string_type<signature> : std::true_type {};
+template <typename T>
+struct is_string_type
+  : std::integral_constant<
+    bool,
+    std::is_same<string, std::remove_cv_t<T>>::value ||
+    std::is_same<object_path, std::remove_cv_t<T>>::value ||
+    std::is_same<signature, std::remove_cv_t<T>>::value
+  > {};
 
 template <std::size_t... Is>
 struct seq {};
@@ -204,18 +186,17 @@ struct element_signature {};
 template <typename Element>
 struct element_signature<
     Element,
-    typename std::enable_if<is_fixed_type<Element>::value ||
-                            is_string_type<Element>::value ||
-                            std::is_same<Element, dbus_variant>::value>::type> {
-  static auto constexpr code = std::array<char, 2>{{element<Element>::code, 0}};
+    std::enable_if_t<is_fixed_type<Element>::value ||
+                     is_string_type<Element>::value ||
+                     std::is_same<Element, dbus_variant>::value>> {
+  static auto constexpr code = std::array<char, 2>{{element<std::decay_t<Element>>::code, 0}};
 };
 
 template <typename Element>
 struct element_signature<
-    Element, typename std::enable_if<std::is_pointer<Element>::value>::type> {
+    Element, std::enable_if_t<std::is_pointer<Element>::value>> {
   static auto const constexpr code =
-
-      element_signature<typename std::remove_pointer<Element>::type>::code;
+      element_signature<std::remove_pointer_t<Element>>::code;
 };
 
 template <typename T>
@@ -241,11 +222,11 @@ struct has_const_iterator {
 template <typename Container>
 struct element_signature<
     Container,
-    typename std::enable_if<has_const_iterator<Container>::value &&
-                            !is_string_type<Container>::value>::type> {
+    std::enable_if_t<has_const_iterator<Container>::value &&
+                     !is_string_type<Container>::value>> {
   static auto const constexpr code =
       concat(std::array<char, 2>{{DBUS_TYPE_ARRAY, 0}},
-             element_signature<typename Container::value_type>::code);
+             element_signature<std::decay_t<typename Container::value_type>>::code);
 };
 
 // Specialization for std::pair type.  Std::pair is treated as a "dict entry"
@@ -257,8 +238,8 @@ template <typename Key, typename Value>
 struct element_signature<std::pair<Key, Value>> {
   static auto const constexpr code =
       concat(std::array<char, 2>{{'{', 0}},
-             concat(element_signature<Key>::code,
-                    concat(element_signature<Value>::code,
+             concat(element_signature<std::decay_t<Key>>::code,
+                    concat(element_signature<std::decay_t<Value>>::code,
                            std::array<char, 2>{{'}', 0}})));
 };
 

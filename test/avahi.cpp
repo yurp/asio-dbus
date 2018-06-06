@@ -9,21 +9,24 @@
 #include <dbus/match.hpp>
 #include <dbus/message.hpp>
 #include <functional>
+#include <chrono>
 
 #include <unistd.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+using namespace std::literals;
+
 TEST(AvahiTest, GetHostName) {
   dbus::endpoint test_daemon("org.freedesktop.Avahi", "/",
                              "org.freedesktop.Avahi.Server");
-  boost::asio::io_service io;
+  asio::io_service io;
   dbus::connection system_bus(io, dbus::bus::system);
 
   dbus::message m = dbus::message::new_call(test_daemon, "GetHostName");
 
   system_bus.async_send(
-      m, [&](const boost::system::error_code ec, dbus::message r) {
+      m, [&](const asio::error_code ec, dbus::message r) {
 
         std::string avahi_hostname;
         std::string hostname;
@@ -41,8 +44,8 @@ TEST(AvahiTest, GetHostName) {
 
         io.stop();
       });
-  boost::asio::deadline_timer t(io, boost::posix_time::seconds(10));
-  t.async_wait([&](const boost::system::error_code& /*e*/) {
+  asio::steady_timer t(io, 10s);
+  t.async_wait([&](const asio::error_code& /*e*/) {
     io.stop();
     FAIL() << "Callback was never called\n";
   });
@@ -50,7 +53,7 @@ TEST(AvahiTest, GetHostName) {
 }
 
 TEST(AvahiTest, ServiceBrowser) {
-  boost::asio::io_service io;
+  asio::io_service io;
   dbus::connection system_bus(io, dbus::bus::system);
 
   dbus::endpoint test_daemon("org.freedesktop.Avahi", "/",
@@ -70,8 +73,8 @@ TEST(AvahiTest, ServiceBrowser) {
     return member == "NameAcquired";
   });
 
-  std::function<void(boost::system::error_code, dbus::message)> event_handler =
-      [&](boost::system::error_code ec, dbus::message s) {
+  std::function<void(asio::error_code, dbus::message)> event_handler =
+      [&](asio::error_code ec, dbus::message s) {
         testing::Test::RecordProperty("firstSignal", s.get_member());
         std::string a = s.get_member();
         std::string dude;
@@ -81,18 +84,18 @@ TEST(AvahiTest, ServiceBrowser) {
       };
   f.async_dispatch(event_handler);
 
-  boost::asio::deadline_timer t(io, boost::posix_time::seconds(10));
-  t.async_wait([&](const boost::system::error_code& /*e*/) {
+  asio::steady_timer t(io, 10s);
+  t.async_wait([&](const asio::error_code& /*e*/) {
     io.stop();
     FAIL() << "Callback was never called\n";
   });
   io.run();
 }
 
-TEST(BOOST_DBUS, ListServices) {
-  boost::asio::io_service io;
-  boost::asio::deadline_timer t(io, boost::posix_time::seconds(10));
-  t.async_wait([&](const boost::system::error_code& /*e*/) {
+TEST(ASIO_DBUS, ListServices) {
+  asio::io_service io;
+  asio::steady_timer t(io, 10s);
+  t.async_wait([&](const asio::error_code& /*e*/) {
     io.stop();
     FAIL() << "Callback was never called\n";
   });
@@ -104,22 +107,21 @@ TEST(BOOST_DBUS, ListServices) {
   // create new service browser
   dbus::message m = dbus::message::new_call(test_daemon, "ListNames");
   system_bus.async_send(
-      m, [&](const boost::system::error_code ec, dbus::message r) {
+      m, [&](const asio::error_code ec, dbus::message r) {
         io.stop();
         std::vector<std::string> services;
         r.unpack(services);
         // Test a couple things that should always be present.... adapt if
         // neccesary
         EXPECT_THAT(services, testing::Contains("org.freedesktop.DBus"));
-        EXPECT_THAT(services, testing::Contains("org.freedesktop.Accounts"));
-
+        EXPECT_THAT(services, testing::Contains("org.freedesktop.PolicyKit1"));
       });
 
   io.run();
 }
 
-TEST(BOOST_DBUS, SingleSensorChanged) {
-  boost::asio::io_service io;
+TEST(ASIO_DBUS, SingleSensorChanged) {
+  asio::io_service io;
   dbus::connection system_bus(io, dbus::bus::system);
 
   dbus::match ma(system_bus,
@@ -129,7 +131,7 @@ TEST(BOOST_DBUS, SingleSensorChanged) {
     return member == "PropertiesChanged";
   });
 
-  f.async_dispatch([&](boost::system::error_code ec, dbus::message s) {
+  f.async_dispatch([&](asio::error_code ec, dbus::message s) {
     std::string object_name;
     EXPECT_EQ(s.get_path(),
               "/xyz/openbmc_project/sensors/temperature/LR_Brd_Temp");
@@ -161,13 +163,13 @@ TEST(BOOST_DBUS, SingleSensorChanged) {
   EXPECT_EQ(m.pack("xyz.openbmc_project.Sensor.Value", map2, removed), true);
 
   system_bus.async_send(m,
-                        [&](boost::system::error_code ec, dbus::message s) {});
+                        [&](asio::error_code ec, dbus::message s) {});
 
   io.run();
 }
 
-TEST(BOOST_DBUS, MultipleSensorChanged) {
-  boost::asio::io_service io;
+TEST(ASIO_DBUS, MultipleSensorChanged) {
+  asio::io_service io;
   dbus::connection system_bus(io, dbus::bus::system);
 
   dbus::match ma(system_bus,
@@ -178,8 +180,8 @@ TEST(BOOST_DBUS, MultipleSensorChanged) {
   });
 
   int count = 0;
-  std::function<void(boost::system::error_code, dbus::message)> callback = [&](
-      boost::system::error_code ec, dbus::message s) {
+  std::function<void(asio::error_code, dbus::message)> callback = [&](
+      asio::error_code ec, dbus::message s) {
     std::string object_name;
     EXPECT_EQ(s.get_path(),
               "/xyz/openbmc_project/sensors/temperature/LR_Brd_Temp");
@@ -218,17 +220,17 @@ TEST(BOOST_DBUS, MultipleSensorChanged) {
   auto m = dbus::message::new_signal(test_endpoint, signal_name);
   m.pack("xyz.openbmc_project.Sensor.Value", map2, removed);
 
-  system_bus.send(m, std::chrono::seconds(0));
-  system_bus.send(m, std::chrono::seconds(0));
+  system_bus.send(m, 0s);
+  system_bus.send(m, 0s);
 
   io.run();
 }
 
-TEST(BOOST_DBUS, MethodCallEx) {
-  boost::asio::io_service io;
+TEST(ASIO_DBUS, MethodCallEx) {
+  asio::io_service io;
   // Expiration timer to stop tests if they fail
-  boost::asio::deadline_timer t(io, boost::posix_time::seconds(10));
-  t.async_wait([&](const boost::system::error_code&) {
+  asio::steady_timer t(io, 10s);
+  t.async_wait([&](const asio::error_code&) {
     io.stop();
     FAIL() << "Callback was never called\n";
   });
@@ -240,8 +242,8 @@ TEST(BOOST_DBUS, MethodCallEx) {
     return m.get_sender() == requested_name;
   });
 
-  std::function<void(boost::system::error_code, dbus::message)> method_handler =
-      [&](boost::system::error_code ec, dbus::message s) {
+  std::function<void(asio::error_code, dbus::message)> method_handler =
+      [&](asio::error_code ec, dbus::message s) {
         if (ec) {
           FAIL() << ec;
         } else {
@@ -258,7 +260,7 @@ TEST(BOOST_DBUS, MethodCallEx) {
           auto r = system_bus.reply(s);
           r.pack("IDLE");
           system_bus.async_send(
-              r, [&](boost::system::error_code ec, dbus::message s) {});
+              r, [&](asio::error_code ec, dbus::message s) {});
           io.stop();
         }
       };
@@ -267,12 +269,12 @@ TEST(BOOST_DBUS, MethodCallEx) {
   dbus::endpoint test_endpoint(requested_name, "/xyz/openbmc_project/fwupdate1",
                                "org.freedesktop.DBus.Properties", "Get");
   system_bus.async_method_call(
-      [&](const boost::system::error_code ec,
+      [&](const asio::error_code ec,
           const dbus::dbus_variant& status) {
         if (ec) {
           FAIL();
         } else {
-          EXPECT_EQ(boost::get<std::string>(status), "IDLE");
+          EXPECT_EQ(std::get<std::string>(status), "IDLE");
         }
       },
       test_endpoint, "xyz.openbmc_project.fwupdate1", "State");
@@ -280,11 +282,11 @@ TEST(BOOST_DBUS, MethodCallEx) {
   io.run();
 }
 
-TEST(BOOST_DBUS, MethodCall) {
-  boost::asio::io_service io;
+TEST(ASIO_DBUS, MethodCall) {
+  asio::io_service io;
 
-  boost::asio::deadline_timer t(io, boost::posix_time::seconds(2));
-  t.async_wait([&](const boost::system::error_code&) {
+  asio::steady_timer t(io, 2s);
+  t.async_wait([&](const asio::error_code&) {
     io.stop();
     FAIL() << "Callback was never called\n";
   });
@@ -298,8 +300,8 @@ TEST(BOOST_DBUS, MethodCall) {
             m.get_signature() == "ss");
   });
 
-  std::function<void(boost::system::error_code, dbus::message)> method_handler =
-      [&](boost::system::error_code ec, dbus::message s) {
+  std::function<void(asio::error_code, dbus::message)> method_handler =
+      [&](asio::error_code ec, dbus::message s) {
         if (ec) {
           FAIL() << ec;
         } else {
@@ -313,7 +315,7 @@ TEST(BOOST_DBUS, MethodCall) {
           auto r = bus.reply(s);
           r.pack("IDLE");
           bus.async_send(r,
-              [&](boost::system::error_code ec, dbus::message s) {});
+              [&](asio::error_code ec, dbus::message s) {});
           io.stop();
         }
       };
@@ -326,11 +328,11 @@ TEST(BOOST_DBUS, MethodCall) {
   auto m = dbus::message::new_call(test_endpoint, method_name);
 
   m.pack("xyz.openbmc_project.fwupdate1", "State");
-  bus.async_send(m, [&](boost::system::error_code ec, dbus::message s) {
+  bus.async_send(m, [&](asio::error_code ec, dbus::message s) {
     std::cerr << "received s: " << s << std::endl;
   });
 
-  // system_bus.send(m, std::chrono::seconds(0));
+  // system_bus.send(m, 0s);
 
   io.run();
 }
