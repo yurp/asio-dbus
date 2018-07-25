@@ -101,14 +101,14 @@ class message {
     return sanitize(dbus_message_get_destination(message_.get()));
   }
 
-  uint32 get_serial() { return dbus_message_get_serial(message_.get()); }
+  uint32 get_serial() const { return dbus_message_get_serial(message_.get()); }
 
   message& set_serial(uint32 serial) {
     dbus_message_set_serial(message_.get(), serial);
     return *this;
   }
 
-  uint32 get_reply_serial() {
+  uint32 get_reply_serial() const {
     return dbus_message_get_reply_serial(message_.get());
   }
 
