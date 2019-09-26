@@ -79,7 +79,8 @@ inline asio::system_error error::system_error() const {
 }
 
 inline void error::throw_if_set() const {
-  if (is_set()) throw system_error();
+  if (is_set())
+    asio::detail::throw_exception(system_error());
 }
 
 }  // namespace dbus

@@ -11,15 +11,19 @@ namespace impl {
 
 inline DBusHandlerResult filter_callback(DBusConnection* c, DBusMessage* m,
                                          void* userdata) {
+#if !defined(ASIO_NO_EXCEPTIONS)
   try {
+#endif // !defined(ASIO_NO_EXCEPTIONS)
     filter& f = *static_cast<filter*>(userdata);
     message m_(m);
     if (f.offer(m_)) {
       return DBUS_HANDLER_RESULT_HANDLED;
     }
+#if !defined(ASIO_NO_EXCEPTIONS)
   } catch (...) {
     // do not throw in C callbacks. Just don't.
   }
+#endif // !defined(ASIO_NO_EXCEPTIONS)
 
   return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }

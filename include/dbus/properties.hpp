@@ -113,7 +113,9 @@ class LambdaDbusMethod : public DbusMethod {
       conn.send(err, std::chrono::seconds(0));
       return;
     }
+#if !defined(ASIO_NO_EXCEPTIONS)
     try {
+#endif // !defined(ASIO_NO_EXCEPTIONS)
       ResultType r = apply(h, input_args);
       auto ret = dbus::message::new_return(m);
       if (pack_tuple_into_msg(r, ret) == false) {
@@ -123,6 +125,7 @@ class LambdaDbusMethod : public DbusMethod {
         return;
       }
       conn.send(ret, std::chrono::seconds(0));
+#if !defined(ASIO_NO_EXCEPTIONS)
     } catch (...) {
       auto err = dbus::message::new_error(
           m, DBUS_ERROR_FAILED,
@@ -130,6 +133,7 @@ class LambdaDbusMethod : public DbusMethod {
       conn.send(err, std::chrono::seconds(0));
       return;
     }
+#endif // !defined(ASIO_NO_EXCEPTIONS)
   };
 
   std::vector<DbusArgument> get_args() override { return args; };
@@ -197,7 +201,7 @@ class DbusInterface {
     auto property = properties_map.find(property_name);
     if (property == properties_map.end()) {
       // TODO(ed) property not found error
-      throw std::runtime_error("property not found");
+      asio::detail::throw_exception(std::runtime_error("property not found"));
     } else {
       return property->second;
     }
@@ -312,13 +316,13 @@ class DbusObject {
           auto interface_it = interfaces.find(interface_name);
           if (interface_it == interfaces.end()) {
             // Interface not found error
-            throw std::runtime_error("interface not found");
+            asio::detail::throw_exception(std::runtime_error("interface not found"));
           } else {
             auto& properties_map = interface_it->second->get_properties_map();
             auto property = properties_map.find(property_name);
             if (property == properties_map.end()) {
               // TODO(ed) property not found error
-              throw std::runtime_error("property not found");
+              asio::detail::throw_exception(std::runtime_error("property not found"));
             } else {
               return std::tuple<dbus_variant>(property->second);
             }
@@ -331,7 +335,7 @@ class DbusObject {
           auto interface_it = interfaces.find(interface_name);
           if (interface_it == interfaces.end()) {
             // Interface not found error
-            throw std::runtime_error("interface not found");
+            asio::detail::throw_exception(std::runtime_error("interface not found"));
           } else {
             return interface_it->second->get_properties_map();
           }
@@ -343,7 +347,7 @@ class DbusObject {
           auto interface_it = interfaces.find(interface_name);
           if (interface_it == interfaces.end()) {
             // Interface not found error
-            throw std::runtime_error("interface not found");
+            asio::detail::throw_exception(std::runtime_error("interface not found"));
           } else {
             // Todo, the set propery (signular) interface should support
             // handing a variant.  The below is expensive
