@@ -314,7 +314,7 @@ class message {
 
       variant::for_each<dbus_variant>([&](auto t) {
         if (arg_type == element<decltype(t)>::code) {
-          decltype(t) val_to_fill;
+          decltype(t) val_to_fill{};
           sub.unpack(val_to_fill);
           v = val_to_fill;
         }

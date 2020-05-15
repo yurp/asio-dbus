@@ -11,6 +11,7 @@
 #include <vector>
 #include <cstdint>
 #include <variant>
+#include <optional>
 
 namespace dbus {
 
@@ -37,6 +38,8 @@ typedef std::string string;
 typedef std::variant<std::string, bool, byte, int16, uint16, int32, uint32,
                        int64, uint64, double>
     dbus_variant;
+
+using dbus_optional_variant = std::optional<dbus_variant>;
 
 struct object_path {
   string value;

@@ -197,11 +197,11 @@ class DbusInterface {
     return properties_map;
   };
 
-  dbus_variant get_property(const std::string& property_name) {
+  dbus_optional_variant get_property(const std::string& property_name) {
     auto property = properties_map.find(property_name);
     if (property == properties_map.end()) {
       // TODO(ed) property not found error
-      asio::detail::throw_exception(std::runtime_error("property not found"));
+      return std::nullopt;
     } else {
       return property->second;
     }
