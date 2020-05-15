@@ -27,7 +27,7 @@ struct async_send_op {
   MessageHandler handler_;
   async_send_op(asio::io_service& io, MessageHandler& handler);
   static void callback(DBusPendingCall* p, void* userdata);  // for C API
-  void operator()(impl::connection& c, message& m);  // initiate operation
+  void operator()(impl::connection& c, message& m, int timeout_ms);  // initiate operation
   void operator()();  // bound completion handler form
 };
 
@@ -38,7 +38,8 @@ async_send_op<MessageHandler>::async_send_op(asio::io_service& io,
 
 template <typename MessageHandler>
 void async_send_op<MessageHandler>::operator()(impl::connection& c,
-                                               message& m) {
+                                               message& m,
+                                               int timeout_ms) {
   DBusPendingCall* p;
   if (m.get_type() != "method_call") {
     // For some undocumented reason, dbus_connection_send_with_reply doesn't
@@ -47,7 +48,7 @@ void async_send_op<MessageHandler>::operator()(impl::connection& c,
     // reply
     c.send(m);
   } else {
-    c.send_with_reply(m, &p, -1);
+    c.send_with_reply(m, &p, timeout_ms);
 
     // We have to throw this onto the heap so that the
     // C API can store it as `void *userdata`

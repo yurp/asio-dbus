@@ -66,6 +66,19 @@ class connection : public asio::basic_io_object<connection_service> {
     this->get_implementation().request_name(name);
   }
 
+    /// Release a name on the bus.
+    /**
+   * @param name The name released on the bus
+   *
+   * @return
+   *
+   * @throws asio::system_error When the response timed out or
+   * there was some other error.
+   */
+  void release_name(const string& name) {
+    this->get_implementation().release_name(name);
+  }
+
   std::string get_unique_name() {
     return this->get_implementation().get_unique_name();
   }
@@ -133,10 +146,10 @@ class connection : public asio::basic_io_object<connection_service> {
   template <typename MessageHandler>
   inline ASIO_INITFN_RESULT_TYPE(MessageHandler,
                                  void(asio::error_code, message))
-      async_send(message& m, ASIO_MOVE_ARG(MessageHandler) handler) {
+      async_send(message& m, ASIO_MOVE_ARG(MessageHandler) handler, int timeout_ms = -1) {
     return this->get_service().async_send(
         this->get_implementation(), m,
-        ASIO_MOVE_CAST(MessageHandler)(handler));
+        ASIO_MOVE_CAST(MessageHandler)(handler), timeout_ms);
   }
 
   // Small helper class for stipping off the error code from the function

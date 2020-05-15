@@ -77,7 +77,7 @@ class connection_service
   inline ASIO_INITFN_RESULT_TYPE(MessageHandler,
                                  void(asio::error_code, message))
       async_send(implementation_type& impl, message& m,
-                 ASIO_MOVE_ARG(MessageHandler) handler) {
+                 ASIO_MOVE_ARG(MessageHandler) handler, int timeout_ms) {
     // begin asynchronous operation
     impl.start(this->get_io_context());
 
@@ -86,7 +86,7 @@ class connection_service
         init(handler);
     detail::async_send_op<typename asio::async_result<
         MessageHandler, void(asio::error_code, message)>::completion_handler_type>(
-        this->get_io_context(), init.completion_handler)(impl, m);
+        this->get_io_context(), init.completion_handler)(impl, m, timeout_ms);
 
     return init.result.get();
   }

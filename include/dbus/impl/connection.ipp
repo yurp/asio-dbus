@@ -60,6 +60,12 @@ class connection {
     e.throw_if_set();
   }
 
+  void release_name(const string& name) {
+    error e;
+    dbus_bus_release_name(conn, name.c_str(), e);
+    e.throw_if_set();
+  }
+
   std::string get_unique_name() {
     error e;
     auto name = dbus_bus_get_unique_name(conn);
@@ -103,7 +109,7 @@ class connection {
   }
 
   void send_with_reply(message& m, DBusPendingCall** p,
-                       int timeout_in_milliseconds = -1) {
+                       int timeout_in_milliseconds) {
     // TODO(Ed) check error code
     dbus_connection_send_with_reply(conn, m, p, timeout_in_milliseconds);
   }

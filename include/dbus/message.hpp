@@ -117,6 +117,21 @@ class message {
     return *this;
   }
 
+  std::size_t get_args_num() {
+    impl::message_iterator iter_;
+    impl::message_iterator::init(*this, iter_);
+    std::size_t num = 0;
+    while (iter_.get_arg_type() != DBUS_TYPE_INVALID) {
+      iter_.next();
+      ++num;
+    }
+    return num;
+  }
+
+  bool set_destination(const string& destination) {
+    return dbus_message_set_destination(message_.get(), destination.c_str());
+  }
+
   struct packer {
     impl::message_iterator iter_;
     packer(message& m) { impl::message_iterator::init_append(m, iter_); }
@@ -476,6 +491,14 @@ struct function_traits<R(Args...)> {
   using result_type = R;
   using argument_types = std::tuple<Args...>;
   using decayed_arg_types = std::tuple<std::decay_t<Args>...>;
+
+  static constexpr size_t nargs = sizeof...(Args);
+
+  template <size_t i>
+  struct arg
+  {
+    using type = typename std::tuple_element<i, argument_types>::type;
+  };
 };
 
 // partial specialization for function pointer
@@ -484,6 +507,14 @@ struct function_traits<R (*)(Args...)> {
   using result_type = R;
   using argument_types = std::tuple<Args...>;
   using decayed_arg_types = std::tuple<std::decay_t<Args>...>;
+
+  static constexpr size_t nargs = sizeof...(Args);
+
+  template <size_t i>
+  struct arg
+  {
+    using type = typename std::tuple_element<i, argument_types>::type;
+  };
 };
 
 // partial specialization for std::function
@@ -492,6 +523,14 @@ struct function_traits<std::function<R(Args...)>> {
   using result_type = R;
   using argument_types = std::tuple<Args...>;
   using decayed_arg_types = std::tuple<std::decay_t<Args>...>;
+
+  static constexpr size_t nargs = sizeof...(Args);
+
+  template <size_t i>
+  struct arg
+  {
+    using type = typename std::tuple_element<i, argument_types>::type;
+  };
 };
 
 // partial specialization for pointer-to-member-function (i.e., operator()'s)
@@ -500,6 +539,14 @@ struct function_traits<R (T::*)(Args...)> {
   using result_type = R;
   using argument_types = std::tuple<Args...>;
   using decayed_arg_types = std::tuple<std::decay_t<Args>...>;
+
+  static constexpr size_t nargs = sizeof...(Args);
+
+  template <size_t i>
+  struct arg
+  {
+    using type = typename std::tuple_element<i, argument_types>::type;
+  };
 };
 
 template <class T, class R, class... Args>
@@ -507,6 +554,14 @@ struct function_traits<R (T::*)(Args...) const> {
   using result_type = R;
   using argument_types = std::tuple<Args...>;
   using decayed_arg_types = std::tuple<std::decay_t<Args>...>;
+
+  static constexpr size_t nargs = sizeof...(Args);
+
+  template <size_t i>
+  struct arg
+  {
+    using type = typename std::tuple_element<i, argument_types>::type;
+  };
 };
 
 template <class F, size_t... Is>
@@ -534,6 +589,11 @@ constexpr bool unpack_into_tuple(Tuple& t, dbus::message& m) {
 // Specialization for empty tuples.  No need to unpack if no arguments
 constexpr bool unpack_into_tuple(std::tuple<>& t, dbus::message& m) {
   return true;
+}
+
+template <class Tuple>
+inline bool validate_args_num(dbus::message& m) {
+  return m.get_args_num() == std::tuple_size<Tuple>{};
 }
 
 template <typename... Args>
