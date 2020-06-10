@@ -8,6 +8,7 @@
 
 #include <dbus/dbus.h>
 #include <asio/generic/stream_protocol.hpp>
+#include <asio/io_service.hpp>
 #include <asio/steady_timer.hpp>
 
 #include <chrono>
@@ -19,17 +20,12 @@ static void watch_toggled(DBusWatch *dbus_watch, void *data);
 struct watch_handler {
   DBusWatchFlags flags;
   DBusWatch *dbus_watch;
-  watch_handler(DBusWatchFlags f, DBusWatch *w) : flags(f), dbus_watch(w) {}
+  void *data;
+  watch_handler(DBusWatchFlags f, DBusWatch *w, void *d) : flags(f), dbus_watch(w), data(d) {}
   void operator()(asio::error_code ec, size_t) {
     if (ec) return;
     dbus_watch_handle(dbus_watch, flags);
-    auto data = dbus_watch_get_data(dbus_watch);
-    if (data != nullptr) {
-      asio::generic::stream_protocol::socket &socket =
-          *static_cast<asio::generic::stream_protocol::socket *>(data);
-
-      watch_toggled(dbus_watch, &socket.get_io_service());
-    }
+    watch_toggled(dbus_watch, data);
   }
 };
 static void watch_toggled(DBusWatch *dbus_watch, void *data) {
@@ -43,11 +39,11 @@ static void watch_toggled(DBusWatch *dbus_watch, void *data) {
   if (dbus_watch_get_enabled(dbus_watch)) {
     if (dbus_watch_get_flags(dbus_watch) & DBUS_WATCH_READABLE)
       socket->async_read_some(asio::null_buffers(),
-                              watch_handler(DBUS_WATCH_READABLE, dbus_watch));
+                              watch_handler(DBUS_WATCH_READABLE, dbus_watch, data));
 
     if (dbus_watch_get_flags(dbus_watch) & DBUS_WATCH_WRITABLE)
       socket->async_write_some(asio::null_buffers(),
-                               watch_handler(DBUS_WATCH_WRITABLE, dbus_watch));
+                               watch_handler(DBUS_WATCH_WRITABLE, dbus_watch, data));
 
   } else {
     socket->cancel();
