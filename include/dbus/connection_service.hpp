@@ -44,13 +44,13 @@ class connection_service
   }
 
   inline void open(implementation_type& impl, const string& address) {
-    asio::io_service& io = this->get_io_service();
+    asio::io_service& io = this->get_io_context();
 
     impl.open(io, address);
   }
 
   inline void open(implementation_type& impl, const int bus = bus::system) {
-    asio::io_service& io = this->get_io_service();
+    asio::io_service& io = this->get_io_context();
 
     impl.open(io, bus);
   }
@@ -79,14 +79,14 @@ class connection_service
       async_send(implementation_type& impl, message& m,
                  ASIO_MOVE_ARG(MessageHandler) handler) {
     // begin asynchronous operation
-    impl.start(this->get_io_service());
+    impl.start(this->get_io_context());
 
     asio::async_completion<
         MessageHandler, void(asio::error_code, message)>
         init(handler);
-    detail::async_send_op<typename asio::handler_type<
-        MessageHandler, void(asio::error_code, message)>::type>(
-        this->get_io_service(), init.completion_handler)(impl, m);
+    detail::async_send_op<typename asio::async_result<
+        MessageHandler, void(asio::error_code, message)>::completion_handler_type>(
+        this->get_io_context(), init.completion_handler)(impl, m);
 
     return init.result.get();
   }
