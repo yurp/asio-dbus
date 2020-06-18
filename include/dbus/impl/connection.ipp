@@ -117,7 +117,7 @@ class connection {
       // simultaneously on a paused connection, then
       // only one will pass the CAS instruction and
       // only one dispatch_handler will be injected.
-      io.post(detail::dispatch_handler(io, conn));
+      detail::dispatch_handler::process(io, conn);
     }
   }
 

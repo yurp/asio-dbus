@@ -120,14 +120,31 @@ static void remove_timeout(DBusTimeout *dbus_timeout, void *data) {
       dbus_timeout_get_data(dbus_timeout));
 }
 
-struct dispatch_handler {
+class dispatch_handler {
   asio::io_service &io;
   DBusConnection *conn;
   dispatch_handler(asio::io_service &i, DBusConnection *c)
-      : io(i), conn(c) {}
+      : io(i), conn(c) {
+    dbus_connection_ref(conn);
+  }
+public:
+  ~dispatch_handler() {
+    dbus_connection_unref(conn);
+  }
+  dispatch_handler(const dispatch_handler& other) : io{other.io} , conn{other.conn} {
+    dbus_connection_ref(conn);
+  }
+  dispatch_handler(dispatch_handler&& other) : io{other.io} , conn{other.conn} {
+    dbus_connection_ref(conn);
+  }
+  dispatch_handler& operator=(const dispatch_handler&) = delete;
+  dispatch_handler& operator=(dispatch_handler&&) = delete;
   void operator()() {
     if (dbus_connection_dispatch(conn) == DBUS_DISPATCH_DATA_REMAINS)
-      io.post(dispatch_handler(io, conn));
+      process(io, conn);
+  }
+  static void process(asio::io_service &io, DBusConnection* conn) {
+    io.post(dispatch_handler(io, conn));
   }
 };
 
@@ -135,7 +152,7 @@ static void dispatch_status(DBusConnection *conn, DBusDispatchStatus new_status,
                             void *data) {
   asio::io_service &io = *static_cast<asio::io_service *>(data);
   if (new_status == DBUS_DISPATCH_DATA_REMAINS)
-    io.post(dispatch_handler(io, conn));
+    dispatch_handler::process(io, conn);
 }
 
 static void set_watch_timeout_dispatch_functions(DBusConnection *conn,
