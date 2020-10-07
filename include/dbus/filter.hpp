@@ -34,18 +34,17 @@ class filter {
   filter(connection& c, ASIO_MOVE_ARG(MessagePredicate) p)
       : connection_(c),
         predicate_(ASIO_MOVE_CAST(MessagePredicate)(p)),
-        queue_(connection_.get_io_service()) {
+        queue_(connection_.get_executor().context()) {
     connection_.new_filter(*this);
   }
 
   ~filter() { connection_.delete_filter(*this); }
 
   template <typename MessageHandler>
-  inline ASIO_INITFN_RESULT_TYPE(MessageHandler,
-                                       void(asio::error_code, message))
-      async_dispatch(ASIO_MOVE_ARG(MessageHandler) handler) {
+  inline ASIO_INITFN_RESULT_TYPE(MessageHandler, void(asio::error_code, message))
+  async_dispatch(ASIO_MOVE_ARG(MessageHandler) handler) {
     // begin asynchronous operation
-    connection_.get_implementation().start(connection_.get_io_service());
+    connection_.get_implementation().start(connection_.get_executor().context());
 
     return queue_.async_pop(ASIO_MOVE_CAST(MessageHandler)(handler));
   }

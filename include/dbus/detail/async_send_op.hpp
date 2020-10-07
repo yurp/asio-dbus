@@ -19,20 +19,20 @@ namespace detail {
 
 template <typename MessageHandler>
 struct async_send_op {
-  asio::io_service& io_;
+  asio::io_context& io_;
   // TODO(ed) Instead of making message_ a unique_ptr, should probably split
   // async_send_op into 2 classes, one that expects a return, and one that does
   // not
   std::shared_ptr<message> message_;
   MessageHandler handler_;
-  async_send_op(asio::io_service& io, MessageHandler& handler);
+  async_send_op(asio::io_context& io, MessageHandler& handler);
   static void callback(DBusPendingCall* p, void* userdata);  // for C API
   void operator()(impl::connection& c, message& m, int timeout_ms);  // initiate operation
   void operator()();  // bound completion handler form
 };
 
 template <typename MessageHandler>
-async_send_op<MessageHandler>::async_send_op(asio::io_service& io,
+async_send_op<MessageHandler>::async_send_op(asio::io_context& io,
                                              MessageHandler& handler)
     : io_(io), handler_(ASIO_MOVE_CAST(MessageHandler)(handler)) {}
 
@@ -79,7 +79,7 @@ void async_send_op<MessageHandler>::callback(DBusPendingCall* p,
   dbus_message_unref(x);
   dbus_pending_call_unref(p);
 
-  op->io_.post(ASIO_MOVE_CAST(async_send_op)(*op));
+  asio::post(op->io_, ASIO_MOVE_CAST(async_send_op)(*op));
 }
 
 template <typename MessageHandler>

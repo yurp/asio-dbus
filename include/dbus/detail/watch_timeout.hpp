@@ -8,7 +8,7 @@
 
 #include <dbus/dbus.h>
 #include <asio/generic/stream_protocol.hpp>
-#include <asio/io_service.hpp>
+#include <asio/io_context.hpp>
 #include <asio/steady_timer.hpp>
 
 #include <chrono>
@@ -55,7 +55,7 @@ static dbus_bool_t add_watch(DBusWatch *dbus_watch, void *data) {
     return TRUE;
   }
 
-  asio::io_service &io = *static_cast<asio::io_service *>(data);
+  asio::io_context &io = *static_cast<asio::io_context *>(data);
 
   int fd = dbus_watch_get_unix_fd(dbus_watch);
 
@@ -94,7 +94,7 @@ static void timeout_toggled(DBusTimeout *dbus_timeout, void *data) {
   if (dbus_timeout_get_enabled(dbus_timeout)) {
     asio::steady_timer::duration interval =
         std::chrono::milliseconds(dbus_timeout_get_interval(dbus_timeout));
-    timer.expires_from_now(interval);
+    timer.expires_after(interval);
     timer.cancel();
     timer.async_wait(timeout_handler(dbus_timeout));
   } else {
@@ -105,7 +105,7 @@ static void timeout_toggled(DBusTimeout *dbus_timeout, void *data) {
 static dbus_bool_t add_timeout(DBusTimeout *dbus_timeout, void *data) {
   if (!dbus_timeout_get_enabled(dbus_timeout)) return TRUE;
 
-  asio::io_service &io = *static_cast<asio::io_service *>(data);
+  asio::io_context &io = *static_cast<asio::io_context *>(data);
 
   auto timer = new asio::steady_timer(io);
 
@@ -121,9 +121,9 @@ static void remove_timeout(DBusTimeout *dbus_timeout, void *data) {
 }
 
 class dispatch_handler {
-  asio::io_service &io;
+  asio::io_context &io;
   DBusConnection *conn;
-  dispatch_handler(asio::io_service &i, DBusConnection *c)
+  dispatch_handler(asio::io_context &i, DBusConnection *c)
       : io(i), conn(c) {
     dbus_connection_ref(conn);
   }
@@ -143,20 +143,20 @@ public:
     if (dbus_connection_dispatch(conn) == DBUS_DISPATCH_DATA_REMAINS)
       process(io, conn);
   }
-  static void process(asio::io_service &io, DBusConnection* conn) {
-    io.post(dispatch_handler(io, conn));
+  static void process(asio::io_context &io, DBusConnection* conn) {
+    asio::post(io, dispatch_handler(io, conn));
   }
 };
 
 static void dispatch_status(DBusConnection *conn, DBusDispatchStatus new_status,
                             void *data) {
-  asio::io_service &io = *static_cast<asio::io_service *>(data);
+  asio::io_context &io = *static_cast<asio::io_context *>(data);
   if (new_status == DBUS_DISPATCH_DATA_REMAINS)
     dispatch_handler::process(io, conn);
 }
 
 static void set_watch_timeout_dispatch_functions(DBusConnection *conn,
-                                                 asio::io_service &io) {
+                                                 asio::io_context &io) {
   dbus_connection_set_watch_functions(conn, &add_watch, &remove_watch,
                                       &watch_toggled, &io, NULL);
 

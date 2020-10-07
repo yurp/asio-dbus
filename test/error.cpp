@@ -18,7 +18,7 @@ using namespace dbus;
 using asio::error_code;
 
 TEST(ErrorTest, GetHostName) {
-  io_service io;
+  io_context io;
   EXPECT_THROW(connection system_bus(io, "unix:path=/foo/bar/baz_socket"),
                asio::system_error);
 

@@ -16,8 +16,8 @@
 
 using namespace std::literals;
 
-TEST(RegressionTest, DestroyBeforeEventLoopStart) {
-  asio::io_service io;
+TEST(ConnectionTest, DestroyBeforeEventLoopStart) {
+  asio::io_context io;
 
   {
     dbus::connection bus(io, dbus::bus::system);

@@ -42,6 +42,7 @@ find_package (Threads)
 add_definitions(-DASIO_STANDALONE)
 add_definitions(-DASIO_HAS_STD_SYSTEM_ERROR)
 add_definitions(-DASIO_HEADER_ONLY)
+add_definitions(-DASIO_NO_DEPRECATED)
 
 ##############
 # Install

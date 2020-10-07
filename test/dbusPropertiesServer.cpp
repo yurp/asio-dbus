@@ -17,7 +17,7 @@ static const std::string dbus_boilerplate(
     "introspect.dtd\">\n");
 
 TEST(DbusPropertiesInterface, EmptyObjectServer) {
-  asio::io_service io;
+  asio::io_context io;
   dbus::connection system_bus(io, dbus::bus::system);
 
   // Set up the object server, and send some test events
@@ -28,7 +28,7 @@ TEST(DbusPropertiesInterface, EmptyObjectServer) {
 }
 
 TEST(DbusPropertiesInterface, BasicObjectServer) {
-  asio::io_service io;
+  asio::io_context io;
   dbus::connection system_bus(io, dbus::bus::system);
 
   // Set up the object server, and send some test events
@@ -58,7 +58,7 @@ TEST(DbusPropertiesInterface, BasicObjectServer) {
 }
 
 TEST(DbusPropertiesInterface, SharedNodeObjectServer) {
-  asio::io_service io;
+  asio::io_context io;
   dbus::connection system_bus(io, dbus::bus::system);
 
   // Set up the object server, and send some test events
@@ -100,7 +100,7 @@ TEST(LambdaDbusMethodTest, Basic) {
     lambda_called = true;
     return std::make_tuple<int64_t, int32_t>(4L, 2);
   };
-  asio::io_service io;
+  asio::io_context io;
   dbus::connection bus(io, dbus::bus::session);
   auto dbus_method =
       dbus::LambdaDbusMethod<decltype(lambda)>("foo", bus, lambda);
@@ -118,7 +118,7 @@ TEST(LambdaDbusMethodTest, Basic) {
 }
 
 TEST(DbusPropertiesInterface, ObjectServer) {
-  asio::io_service io;
+  asio::io_context io;
   dbus::connection bus(io, dbus::bus::session);
 
   // Set up the object server, and send some test objects
@@ -176,7 +176,7 @@ TEST(DbusPropertiesInterface, ObjectServer) {
 }
 
 TEST(DbusPropertiesInterface, EmptyMethodServer) {
-  asio::io_service io;
+  asio::io_context io;
   dbus::connection bus(io, dbus::bus::session);
 
   // Set up the object server, and send some test objects
@@ -222,7 +222,7 @@ class TestClass {
 };
 
 TEST(DbusPropertiesInterface, MethodServer) {
-  asio::io_service io;
+  asio::io_context io;
   dbus::connection bus(io, dbus::bus::session);
 
   // Set up the object server, and send some test objects
@@ -313,7 +313,7 @@ TEST(DbusPropertiesInterface, MethodServer) {
 }
 
 TEST(DbusPropertiesInterface, PropertiesInterface) {
-  asio::io_service io;
+  asio::io_context io;
   dbus::connection bus(io, dbus::bus::session);
 
   // Set up the object server, and send some test objects

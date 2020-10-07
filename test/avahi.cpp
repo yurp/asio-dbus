@@ -20,7 +20,7 @@ using namespace std::literals;
 TEST(AvahiTest, GetHostName) {
   dbus::endpoint test_daemon("org.freedesktop.Avahi", "/",
                              "org.freedesktop.Avahi.Server");
-  asio::io_service io;
+  asio::io_context io;
   dbus::connection system_bus(io, dbus::bus::system);
 
   dbus::message m = dbus::message::new_call(test_daemon, "GetHostName");
@@ -53,7 +53,7 @@ TEST(AvahiTest, GetHostName) {
 }
 
 TEST(AvahiTest, ServiceBrowser) {
-  asio::io_service io;
+  asio::io_context io;
   dbus::connection system_bus(io, dbus::bus::system);
 
   dbus::endpoint test_daemon("org.freedesktop.Avahi", "/",
@@ -93,7 +93,7 @@ TEST(AvahiTest, ServiceBrowser) {
 }
 
 TEST(ASIO_DBUS, ListServices) {
-  asio::io_service io;
+  asio::io_context io;
   asio::steady_timer t(io, 10s);
   t.async_wait([&](const asio::error_code& /*e*/) {
     io.stop();
@@ -121,7 +121,7 @@ TEST(ASIO_DBUS, ListServices) {
 }
 
 TEST(ASIO_DBUS, SingleSensorChanged) {
-  asio::io_service io;
+  asio::io_context io;
   dbus::connection system_bus(io, dbus::bus::system);
 
   dbus::match ma(system_bus,
@@ -169,7 +169,7 @@ TEST(ASIO_DBUS, SingleSensorChanged) {
 }
 
 TEST(ASIO_DBUS, MultipleSensorChanged) {
-  asio::io_service io;
+  asio::io_context io;
   dbus::connection system_bus(io, dbus::bus::system);
 
   dbus::match ma(system_bus,
@@ -227,7 +227,7 @@ TEST(ASIO_DBUS, MultipleSensorChanged) {
 }
 
 TEST(ASIO_DBUS, MethodCallEx) {
-  asio::io_service io;
+  asio::io_context io;
   // Expiration timer to stop tests if they fail
   asio::steady_timer t(io, 10s);
   t.async_wait([&](const asio::error_code&) {
@@ -283,7 +283,7 @@ TEST(ASIO_DBUS, MethodCallEx) {
 }
 
 TEST(ASIO_DBUS, MethodCall) {
-  asio::io_service io;
+  asio::io_context io;
 
   asio::steady_timer t(io, 2s);
   t.async_wait([&](const asio::error_code&) {

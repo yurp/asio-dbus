@@ -7,7 +7,7 @@
 #define DBUS_CONNECTION_SERVICE_HPP
 
 #include <asio.hpp>
-#include <asio/io_service.hpp>
+#include <asio/io_context.hpp>
 
 #include <dbus/detail/async_send_op.hpp>
 #include <dbus/element.hpp>
@@ -32,7 +32,7 @@ class connection_service
  public:
   typedef impl::connection implementation_type;
 
-  inline explicit connection_service(asio::io_service& io)
+  inline explicit connection_service(asio::io_context& io)
       : asio::detail::service_base<connection_service>(io) {}
 
   inline void construct(implementation_type& impl) {}
@@ -44,13 +44,13 @@ class connection_service
   }
 
   inline void open(implementation_type& impl, const string& address) {
-    asio::io_service& io = this->get_io_context();
+    asio::io_context& io = this->get_io_context();
 
     impl.open(io, address);
   }
 
   inline void open(implementation_type& impl, const int bus = bus::system) {
-    asio::io_service& io = this->get_io_context();
+    asio::io_context& io = this->get_io_context();
 
     impl.open(io, bus);
   }

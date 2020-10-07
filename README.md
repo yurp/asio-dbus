@@ -27,17 +27,17 @@ struct logger
 
 void main()
 {
-  io_service io;
+  io_context io;
   dbus::proxy avahi(io,
     dbus::endpoint(
 	"org.freedesktop.Avahi", // proxied object process
 	"/",                     // proxied object path
 	"org.freedesktop.Avahi.Server")); // interface
-						       
+
   dbus::message browser_spec(-1, -1,
     "_http._tcp", "local", unsigned(0));
 
-  dbus::message response = 
+  dbus::message response =
     avahi.call("ServiceBrowserNew", browser_spec);
 
   dbus::proxy browser(io,
@@ -50,6 +50,4 @@ void main()
 
   io.run();
 }
-
-
 ```

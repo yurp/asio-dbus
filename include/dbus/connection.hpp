@@ -26,14 +26,14 @@ class connection : public asio::basic_io_object<connection_service> {
  public:
   /// Open a connection to a specified address.
   /**
- * @param io_service The io_service object that the connection will use to
+ * @param io_context The io_context object that the connection will use to
  * wire D-Bus for asynchronous operation.
  *
  * @param address The address of the bus to connect to.
  *
  * @throws asio::system_error When opening the connection failed.
  */
-  connection(asio::io_service& io, const string& address)
+  connection(asio::io_context& io, const string& address)
       : basic_io_object<connection_service>(io) {
     this->get_service().open(this->get_implementation(), address);
   }
@@ -48,7 +48,7 @@ class connection : public asio::basic_io_object<connection_service> {
  * @throws asio::system_error When opening the connection failed.
  */
   // TODO: change this unsigned to an enumeration
-  connection(asio::io_service& io, const int bus)
+  connection(asio::io_context& io, const int bus)
       : basic_io_object<connection_service>(io) {
     this->get_service().open(this->get_implementation(), bus);
   }
@@ -187,7 +187,7 @@ class connection : public asio::basic_io_object<connection_service> {
             }
             // Should this (the callback) be done in a try catch block?
             // should throwing from a handler flow all the way to the
-            // io_service?
+            // io_context?
 
             // Note.  Callback is called whether or not the unpack was sucessful
             // to allow the user to implement their own handling

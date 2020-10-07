@@ -22,13 +22,13 @@ class queue {
   typedef std::function<void(asio::error_code, Message)> handler_type;
 
  private:
-  asio::io_service& io;
+  asio::io_context& io;
   mutex_type mutex;
   std::deque<message_type> messages;
   std::deque<handler_type> handlers;
 
  public:
-  queue(asio::io_service& io_service) : io(io_service) {}
+  queue(asio::io_context& io_ctx) : io(io_ctx) {}
 
   queue(const queue<Message>& m)
       : io(m.io), messages(m.messages), handlers(m.handlers) {
@@ -59,7 +59,7 @@ class queue {
 
       lock.unlock();
 
-      io.post(closure(h, m));
+      asio::post(io, closure(h, m));
     }
   }
 
@@ -90,7 +90,7 @@ class queue {
 
       init_type init(h);
 
-      io.post(closure(init.completion_handler, m));
+      asio::post(io, closure(init.completion_handler, m));
 
       return init.result.get();
     }
