@@ -8,7 +8,6 @@
 
 #include <dbus/dbus.h>
 #include <dbus/element.hpp>
-#include <dbus/message.hpp>
 
 namespace dbus {
 

@@ -60,7 +60,7 @@ class message {
 
   message() : message_(nullptr) {}
 
-  message(nullptr_t) : message_(nullptr) {}
+  message(std::nullptr_t) : message_(nullptr) {}
   message(DBusMessage* m)
     : message_{
         dbus_message_ref(m),

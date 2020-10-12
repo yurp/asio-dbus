@@ -7,11 +7,12 @@
 #define DBUS_ELEMENT_HPP
 
 #include <dbus/dbus.h>
-#include <string>
-#include <vector>
+#include <array>
 #include <cstdint>
-#include <variant>
 #include <optional>
+#include <string>
+#include <variant>
+#include <vector>
 
 namespace dbus {
 
