@@ -12,6 +12,7 @@
 #include <asio/steady_timer.hpp>
 
 #include <chrono>
+#include <memory>
 
 namespace dbus {
 namespace detail {
@@ -78,27 +79,43 @@ static void remove_watch(DBusWatch *dbus_watch, void *data) {
       dbus_watch_get_data(dbus_watch));
 }
 
-struct timeout_handler {
+struct timeout_handler : std::enable_shared_from_this<timeout_handler> {
+  using ptr = std::shared_ptr<timeout_handler>;
+
+  asio::steady_timer timer;
   DBusTimeout *dbus_timeout;
-  timeout_handler(DBusTimeout *t) : dbus_timeout(t) {}
-  void operator()(asio::error_code ec) {
-    if (ec) return;
-    dbus_timeout_handle(dbus_timeout);
+  size_t serial = 0;
+
+  timeout_handler(asio::io_context& io, DBusTimeout *t)
+    : timer{io}
+    , dbus_timeout(t)
+  { }
+
+  void arm(asio::steady_timer::duration const& interval) {
+    disarm();
+    timer.expires_after(interval);
+    timer.async_wait([this, id = serial, self = shared_from_this()] (asio::error_code const& ec)
+        {
+          if (ec || serial != id) return;
+          dbus_timeout_handle(dbus_timeout);
+        }
+    );
+  }
+
+  void disarm() {
+    serial += 1;
+    timer.cancel();
   }
 };
 
 static void timeout_toggled(DBusTimeout *dbus_timeout, void *data) {
-  asio::steady_timer &timer = *static_cast<asio::steady_timer *>(
+  auto& handler = *static_cast<timeout_handler::ptr *>(
       dbus_timeout_get_data(dbus_timeout));
 
   if (dbus_timeout_get_enabled(dbus_timeout)) {
-    asio::steady_timer::duration interval =
-        std::chrono::milliseconds(dbus_timeout_get_interval(dbus_timeout));
-    timer.expires_after(interval);
-    timer.cancel();
-    timer.async_wait(timeout_handler(dbus_timeout));
+    handler->arm(std::chrono::milliseconds(dbus_timeout_get_interval(dbus_timeout)));
   } else {
-    timer.cancel();
+    handler->disarm();
   }
 }
 
@@ -107,17 +124,19 @@ static dbus_bool_t add_timeout(DBusTimeout *dbus_timeout, void *data) {
 
   asio::io_context &io = *static_cast<asio::io_context *>(data);
 
-  auto timer = new asio::steady_timer(io);
+  auto handler = new timeout_handler::ptr(std::make_shared<timeout_handler>(io, dbus_timeout));
 
-  dbus_timeout_set_data(dbus_timeout, timer, NULL);
+  dbus_timeout_set_data(dbus_timeout, handler,
+      [] (void *d) { delete static_cast<timeout_handler::ptr *>(d); });
 
-  timeout_toggled(dbus_timeout, &io);
+  timeout_toggled(dbus_timeout, data);
   return TRUE;
 }
 
 static void remove_timeout(DBusTimeout *dbus_timeout, void *data) {
-  delete static_cast<asio::steady_timer *>(
+  auto& handler = *static_cast<timeout_handler::ptr *>(
       dbus_timeout_get_data(dbus_timeout));
+  handler->disarm();
 }
 
 class dispatch_handler {
