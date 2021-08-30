@@ -77,18 +77,18 @@ class connection_service
   inline ASIO_INITFN_RESULT_TYPE(MessageHandler,
                                  void(asio::error_code, message))
       async_send(implementation_type& impl, message& m,
-                 ASIO_MOVE_ARG(MessageHandler) handler, int timeout_ms) {
-    // begin asynchronous operation
-    impl.start(this->get_io_context());
+                 ASIO_MOVE_ARG(MessageHandler) h, int timeout_ms) {
 
-    asio::async_completion<
-        MessageHandler, void(asio::error_code, message)>
-        init(handler);
-    detail::async_send_op<typename asio::async_result<
-        MessageHandler, void(asio::error_code, message)>::completion_handler_type>(
-        this->get_io_context(), init.completion_handler)(impl, m, timeout_ms);
+    auto i = asio::bind_executor(this->get_io_context().get_executor(), [this, &impl, &m, timeout_ms](auto&& handler)
+    {
+      // begin asynchronous operation
+      impl.start(this->get_io_context());
 
-    return init.result.get();
+      using handler_type = std::decay_t<decltype(handler)>;
+      detail::async_send_op<handler_type>(this->get_io_context(), std::forward<handler_type>(handler)) (impl, m, timeout_ms);
+    });
+
+    return asio::async_initiate<MessageHandler, void(asio::error_code, message)>(std::move(i), h);
   }
 
  private:

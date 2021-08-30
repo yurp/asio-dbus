@@ -68,32 +68,27 @@ class queue {
                                  void(asio::error_code,
                                             message_type))
       async_pop(ASIO_MOVE_ARG(MessageHandler) h) {
-    typedef ::asio::async_completion<
-        MessageHandler, void(asio::error_code, message_type)>
-        init_type;
 
-    mutex_type::scoped_lock lock(mutex);
-    if (messages.empty()) {
-      init_type init(h);
+    auto i = asio::bind_executor(io.get_executor(), [this](auto&& handler)
+    {
+      mutex_type::scoped_lock lock(mutex);
+      if (messages.empty())
+      {
+        handlers.emplace_back(std::forward<decltype(handler)>(handler));
+      }
+      else
+      {
+        message_type m = std::move(messages.front());
+        messages.pop_front();
 
-      handlers.push_back(init.completion_handler);
+        asio::post(io, [h = std::forward<decltype(handler)>(handler), m = std::move(m)]
+        {
+          h({}, std::move(m));
+        });
+      }
+    });
 
-      lock.unlock();
-
-      return init.result.get();
-
-    } else {
-      message_type m = messages.front();
-      messages.pop_front();
-
-      lock.unlock();
-
-      init_type init(h);
-
-      asio::post(io, closure(init.completion_handler, m));
-
-      return init.result.get();
-    }
+    return asio::async_initiate<MessageHandler, void(asio::error_code, message_type)>(std::move(i), h);
   }
 };
 

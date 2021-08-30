@@ -67,7 +67,7 @@ TEST(ConnectionTest, CallWithExpiredTimeoutAndReplyCallback) {
     bool test_result = false;
     dbus::message m = dbus::message::new_call({srv_name, "/", srv_name, srv_method});
     m.pack(42);
-    client.async_send(m, [&io, &test_result] (asio::error_code ec, dbus::message& r)
+    client.async_send(m, [&io, &test_result] (asio::error_code ec, dbus::message r)
         {
           test_result = true;
           io.stop();

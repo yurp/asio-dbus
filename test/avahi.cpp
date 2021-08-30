@@ -8,6 +8,7 @@
 #include <dbus/filter.hpp>
 #include <dbus/match.hpp>
 #include <dbus/message.hpp>
+#include <exception>
 #include <functional>
 #include <chrono>
 
@@ -16,6 +17,49 @@
 #include <gtest/gtest.h>
 
 using namespace std::literals;
+
+TEST(AvahiTest, GetHostNameCoAwait) {
+    asio::io_context io;
+
+    asio::co_spawn(io,
+        [&io]() ->asio::awaitable<void>
+        {
+            dbus::endpoint test_daemon("org.freedesktop.Avahi", "/",
+                                       "org.freedesktop.Avahi.Server");
+            dbus::connection system_bus(io, dbus::bus::system);
+            dbus::message m = dbus::message::new_call(test_daemon, "GetHostName");
+
+            auto r = co_await system_bus.async_send(m, asio::use_awaitable);
+            std::string avahi_hostname;
+            std::string hostname;
+
+            // get hostname from a system call
+            char c[1024];
+            gethostname(c, 1024);
+            hostname = c;
+
+            r.unpack(avahi_hostname);
+
+            // Get only the host name, not the fqdn
+            auto unix_hostname = hostname.substr(0, hostname.find("."));
+            EXPECT_EQ(unix_hostname, avahi_hostname);
+
+            io.stop();
+        },
+        [&io](std::exception_ptr )
+        {
+            io.stop();
+        });
+
+
+  asio::steady_timer t(io, 10s);
+
+  t.async_wait([&](const asio::error_code& /*e*/) {
+    io.stop();
+    FAIL() << "Callback was never called\n";
+  });
+  io.run();
+}
 
 TEST(AvahiTest, GetHostName) {
   dbus::endpoint test_daemon("org.freedesktop.Avahi", "/",
