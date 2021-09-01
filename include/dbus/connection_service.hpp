@@ -16,6 +16,8 @@
 
 #include <dbus/impl/connection.ipp>
 
+#include <type_traits>
+
 namespace dbus {
 namespace bus {
 static const int session = DBUS_BUS_SESSION;
@@ -84,11 +86,14 @@ class connection_service
       // begin asynchronous operation
       impl.start(this->get_io_context());
 
-      using handler_type = std::decay_t<decltype(handler)>;
-      detail::async_send_op<handler_type>(this->get_io_context(), std::forward<handler_type>(handler)) (impl, m, timeout_ms);
+
+      using raw_t = decltype(handler);
+      using handler_t = std::conditional_t<std::is_rvalue_reference_v<raw_t>, std::remove_reference_t<raw_t>, raw_t>;
+
+      detail::async_send_op<handler_t>(this->get_io_context(), handler) (impl, m, timeout_ms);
     });
 
-    return asio::async_initiate<MessageHandler, void(asio::error_code, message)>(std::move(i), h);
+    return asio::async_initiate<MessageHandler, void(asio::error_code, message)>(i, h);
   }
 
  private:

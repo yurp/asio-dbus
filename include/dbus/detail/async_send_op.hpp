@@ -25,7 +25,7 @@ struct async_send_op {
   // not
   std::shared_ptr<message> message_;
   MessageHandler handler_;
-  async_send_op(asio::io_context& io, MessageHandler&& handler);
+  async_send_op(asio::io_context& io, MessageHandler& handler);
   static void callback(DBusPendingCall* p, void* userdata);  // for C API
   void operator()(impl::connection& c, message& m, int timeout_ms);  // initiate operation
   void operator()();  // bound completion handler form
@@ -33,7 +33,7 @@ struct async_send_op {
 
 template <typename MessageHandler>
 async_send_op<MessageHandler>::async_send_op(asio::io_context& io,
-                                             MessageHandler&& handler)
+                                             MessageHandler& handler)
     : io_(io), handler_(ASIO_MOVE_CAST(MessageHandler)(handler)) {}
 
 template <typename MessageHandler>

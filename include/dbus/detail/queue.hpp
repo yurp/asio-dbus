@@ -88,7 +88,7 @@ class queue {
       }
     });
 
-    return asio::async_initiate<MessageHandler, void(asio::error_code, message_type)>(std::move(i), h);
+    return asio::async_initiate<MessageHandler, void(asio::error_code, message_type)>(i, h);
   }
 };
 

@@ -49,7 +49,6 @@ target_include_directories(asio-dbus INTERFACE
                            $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
 			   ${DBUS_INCLUDE_DIRS})
 
-target_compile_features(asio-dbus INTERFACE cxx_std_20)
 target_link_libraries(asio-dbus INTERFACE ${DBUS_LIBRARIES})
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ DESTINATION include)
 
@@ -59,6 +58,7 @@ enable_testing()
 
 add_executable(dbustests "test/avahi.cpp" "test/message.cpp" "test/error.cpp" "test/dbusPropertiesServer.cpp" "test/connection.cpp")
 target_compile_options(dbustests PRIVATE -fcoroutines)
+target_compile_features(dbustests PRIVATE cxx_std_20)
 
 ##############
 # import GTest
