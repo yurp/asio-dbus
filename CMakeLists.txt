@@ -7,10 +7,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
 ###############
 # CMake options
-cmake_minimum_required(VERSION 2.8)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+cmake_minimum_required(VERSION 3.5)
 
 option(HUNTER_ENABLED "Enable hunter package pulling" OFF)
 
@@ -60,6 +57,8 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ DESTINATION include)
 enable_testing()
 
 add_executable(dbustests "test/avahi.cpp" "test/message.cpp" "test/error.cpp" "test/dbusPropertiesServer.cpp" "test/connection.cpp")
+target_compile_options(dbustests PRIVATE -fcoroutines)
+target_compile_features(dbustests PRIVATE cxx_std_20)
 
 ##############
 # import GTest
