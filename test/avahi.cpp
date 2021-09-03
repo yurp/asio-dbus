@@ -33,7 +33,7 @@ TEST(AvahiTest, GetHostNameCoAwait) {
     asio::co_spawn(io, [&is_ok]() -> awaitable_io<void>
     {
         auto ex = co_await asio::this_coro::executor;
-        auto& io = ex.context();
+        auto& io = asio::query(ex, asio::execution::context);
 
         dbus::endpoint test_daemon("org.freedesktop.Avahi", "/",
                                    "org.freedesktop.Avahi.Server");
